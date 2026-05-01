@@ -1,989 +1,1030 @@
-const homeScreen = document.querySelector("#screen-home");
-const rulesScreen = document.querySelector("#screen-rules");
-const gameScreen = document.querySelector("#screen-game");
-const resultScreen = document.querySelector("#screen-result");
-const startButton = document.querySelector("#start-button");
-const rulesFromHomeButton = document.querySelector("#rules-from-home-button");
-const beginLevelButton = document.querySelector("#begin-level-button");
-const backHomeButton = document.querySelector("#back-home-button");
-const statusBar = document.querySelector(".status-bar");
-const mapArea = document.querySelector(".map-area");
-const player = document.querySelector(".player");
-const playerAvatar = document.querySelector(".player-avatar");
-const taskLayer = document.querySelector("#task-layer");
-const handList = document.querySelector("#hand-list");
-const loadSummary = document.querySelector("#load-summary");
-const loadWarning = document.querySelector("#load-warning");
-const gameMessage = document.querySelector("#game-message");
-const tutorialBox = document.querySelector(".tutorial-box");
-const helpButton = document.querySelector("#help-button");
-const debugToggle = document.querySelector("#debug-toggle");
-const debugPanel = document.querySelector("#debug-panel");
-const restZone = document.querySelector("#rest-zone");
-const restFill = document.querySelector("#rest-progress-fill");
-const upgradeToggle = document.querySelector("#upgrade-toggle");
-const activeUpgradesPanel = document.querySelector("#active-upgrades-panel");
-const mobileControls = document.querySelector("#mobile-controls");
+'use strict';
 
-const meters = {
-  life: { value: document.querySelector("#worker-life-value"), meter: document.querySelector("#worker-life-meter"), card: document.querySelector(".status-life") },
-  case: { value: document.querySelector("#case-pressure-value"), meter: document.querySelector("#case-pressure-meter"), card: document.querySelector(".status-case-pressure") },
-  doc: { value: document.querySelector("#doc-pressure-value"), meter: document.querySelector("#doc-pressure-meter"), card: document.querySelector(".status-doc-pressure") },
-  network: { value: document.querySelector("#network-pressure-value"), meter: document.querySelector("#network-pressure-meter"), card: document.querySelector(".status-network-pressure") },
-};
+// ============================================================
+// CONFIG
+// ============================================================
+const MAP_W = 800;
+const MAP_H = 540;
+const GAME_DURATION = 90;
+const MAX_CARRY = 7;
+const PLAYER_R = 13;
+const PICKUP_R = 46;
+const DELIVER_COOLDOWN = 0.32; // seconds between successive deliveries
 
-const zones = {
-  desk: document.querySelector("#desk-zone"),
-  service: document.querySelector("#service-zone"),
-  crisis: document.querySelector("#crisis-zone"),
-  meeting: document.querySelector("#meeting-zone"),
-};
-
-const LEVELS = [
+// ============================================================
+// ZONE DEFINITIONS
+// headColor = solid color for the header band
+// bodyColor = solid light fill for zone body
+// borderColor = border stroke color
+// ============================================================
+const ZONES = [
   {
-    id: 1,
-    label: "第一關",
-    name: "第一關：先撐住今天",
-    passTitle: "第一關通過",
-    passText: "你完成了 15 件任務，暫時穩住了今天。",
-    duration: 60,
-    kpiTarget: 15,
-    spawnSpeedMultiplier: 1,
-    weights: {
-      early: { doc: 32, case: 32, network: 25, crisis: 11 },
-      mid: { doc: 28, case: 20, network: 28, crisis: 24 },
-      late: { doc: 34, case: 12, network: 28, crisis: 26 },
-    },
+    id: 'desk', name: '辦公桌', accepts: ['yellow'],
+    headColor: '#D4850A', bodyColor: '#FFF3CC', borderColor: '#B36A00',
+    x: 40,  y: 40,  w: 168, h: 110, label: '行政紀錄', emoji: '📋'
   },
   {
-    id: 2,
-    label: "第二關",
-    name: "第二關：事情開始追上來",
-    passTitle: "第二關通過",
-    passText: "事情追得更急，但你仍守住了這一輪。",
-    duration: 60,
-    kpiTarget: 18,
-    spawnSpeedMultiplier: 1.15,
-    weights: {
-      early: { doc: 36, case: 22, network: 28, crisis: 14 },
-      mid: { doc: 34, case: 16, network: 27, crisis: 23 },
-      late: { doc: 38, case: 10, network: 26, crisis: 26 },
-    },
+    id: 'service', name: '個案服務區', accepts: ['blue'],
+    headColor: '#2471A3', bodyColor: '#D6EAF8', borderColor: '#1A5276',
+    x: 592, y: 40,  w: 168, h: 110, label: '服務需求', emoji: '🙋'
+  },
+  {
+    id: 'crisis', name: '危機處理區', accepts: ['red'],
+    headColor: '#C0392B', bodyColor: '#FDECEA', borderColor: '#96281B',
+    x: 40,  y: 380, w: 180, h: 120, label: '危機事件', emoji: '🔔'
+  },
+  {
+    id: 'meeting', name: '會議室', accepts: ['purple'],
+    headColor: '#7D3C98', bodyColor: '#EDE0F5', borderColor: '#5B2C6F',
+    x: 592, y: 290, w: 168, h: 110, label: '網絡聯繫', emoji: '📞'
+  },
+  {
+    id: 'supervisor', name: '督導室', accepts: ['green'],
+    headColor: '#1E8449', bodyColor: '#D5F5E3', borderColor: '#145A32',
+    x: 292, y: 380, w: 160, h: 120, label: '支持資源', emoji: '🤝'
+  },
+  {
+    id: 'rest', name: '休息角落', accepts: ['green'],
+    headColor: '#148A68', bodyColor: '#D1F2EB', borderColor: '#0E6655',
+    x: 592, y: 420, w: 168, h: 80,  label: '支持資源', emoji: '☕'
   },
 ];
 
-const TASK_TYPES = {
-  doc: { emoji: "📝", titles: ["登打", "紀錄", "補件"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
-  case: { emoji: "🏠", titles: ["家訪", "福利", "服務"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
-  crisis: { emoji: "📞", titles: ["來電", "危機", "安全"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
-  network: { emoji: "⚖️", titles: ["轉介", "協調", "醫療"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
-};
-
-const UPGRADES = [
-  { id: "life", emoji: "❤️", name: "多撐一點", text: "初始生命 +10" },
-  { id: "speed", emoji: "🏃", name: "快走步伐", text: "移動速度 +10%" },
-  { id: "stamina", emoji: "🫁", name: "省點力氣", text: "生命流失 -10%" },
-  { id: "restHeal", emoji: "☕", name: "會休息的人", text: "休息回復 +10" },
-  { id: "restCooldown", emoji: "⏳", name: "短暫喘息", text: "休息冷卻 -3 秒" },
-  { id: "docRate", emoji: "📝", name: "文書熟手", text: "文件壓力變慢" },
-  { id: "caseRate", emoji: "🧑", name: "個案敏感度", text: "個案壓力變慢" },
-  { id: "networkRate", emoji: "🤝", name: "協調老手", text: "網絡壓力變慢" },
-  { id: "load", emoji: "📦", name: "多拿一點", text: "最大負荷 +2" },
-  { id: "radar", emoji: "🔔", name: "危機雷達", text: "危機更早閃紅" },
-];
-
-const BASE_PHASES = {
-  early: { interval: 2.4 },
-  mid: { interval: 1.8 },
-  late: { interval: 1.2 },
-};
-
-const spawnPoints = [
-  { id: "a", x: 282, y: 70 }, { id: "b", x: 480, y: 70 }, { id: "c", x: 60, y: 250 },
-  { id: "d", x: 260, y: 245 }, { id: "e", x: 455, y: 245 }, { id: "f", x: 650, y: 245 },
-  { id: "g", x: 250, y: 410 }, { id: "h", x: 445, y: 410 }, { id: "i", x: 645, y: 410 },
-  { id: "j", x: 380, y: 155 }, { id: "k", x: 560, y: 155 },
-];
-
-const MAX_HAND = 3;
-const MAX_MAP_TASKS = 8;
-const CARD_W = 142;
-const CARD_H = 104;
-const BASE_SPEED = 7.2;
-const STORAGE_KEY = "sw-day-game-upgrades-v1";
-const POWERUP_TIMES = [40, 20];
-
-const playerState = { x: 450, y: 350 };
-const keys = new Set();
-const moveKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "W", "A", "S", "D"]);
-const lockKeys = new Set(["Tab", "q", "Q"]);
-
-let lastFrame = 0;
-let toastTimer = null;
-let wrongHintAt = 0;
-let currentLevelIndex = 0;
-let activeUpgrades = loadUpgrades();
-let rules = applyUpgrades();
-const state = {};
-
-function loadUpgrades() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveUpgrades() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeUpgrades));
-  } catch {
-    // Upgrades still work in memory when storage is unavailable.
-  }
-}
-
-function upgradeLevel(id) {
-  return activeUpgrades[id] || 0;
-}
-
-function applyUpgrades() {
-  const next = {
-    initialLife: 100,
-    maxLife: 100,
-    speedMultiplier: 1,
-    lifeDrainMultiplier: 1,
-    restHeal: 25,
-    restCooldown: 12,
-    docRateMultiplier: 1,
-    caseRateMultiplier: 1,
-    networkRateMultiplier: 1,
-    maxLoad: 10,
-    crisisWarnRatio: 0.28,
-  };
-  Object.entries(activeUpgrades).forEach(([id, level]) => {
-    if (id === "life") {
-      next.initialLife += 10 * level;
-      next.maxLife += 10 * level;
+// ============================================================
+// TASK TYPE DEFINITIONS
+// ============================================================
+const TASK_DEFS = {
+  red: {
+    color: '#e74c3c',
+    bgColor: '#fdedec',
+    border: '#c0392b',
+    label: '危機事件',
+    zone: ['crisis'],
+    texts: ['緊急來電', '衝突升高', '安全評估', '保護令問題'],
+    urgency: 22,
+    onComplete(s) {
+      s.caseSafety     = clamp(s.caseSafety + 12, 0, 100);
+      s.serviceProgress = clamp(s.serviceProgress + 5, 0, 100);
+      if (Math.random() < 0.7) spawnTask('yellow');
+    },
+    onExpire(s) { s.caseSafety = clamp(s.caseSafety - 14, 0, 100); }
+  },
+  blue: {
+    color: '#2980b9',
+    bgColor: '#d6eaf8',
+    border: '#1a6695',
+    label: '服務需求',
+    zone: ['service'],
+    texts: ['福利申請', '租屋困難', '就業需求', '情緒支持'],
+    urgency: 32,
+    onComplete(s) {
+      s.serviceProgress = clamp(s.serviceProgress + 9, 0, 100);
+      if (Math.random() < 0.4) spawnTask('yellow');
+    },
+    onExpire(s) {
+      s.serviceProgress = clamp(s.serviceProgress - 5, 0, 100);
+      s.caseSafety      = clamp(s.caseSafety - 4, 0, 100);
     }
-    if (id === "speed") next.speedMultiplier += 0.1 * level;
-    if (id === "stamina") next.lifeDrainMultiplier *= 0.9 ** level;
-    if (id === "restHeal") next.restHeal += 10 * level;
-    if (id === "restCooldown") next.restCooldown = Math.max(3, next.restCooldown - 3 * level);
-    if (id === "docRate") next.docRateMultiplier *= 0.9 ** level;
-    if (id === "caseRate") next.caseRateMultiplier *= 0.9 ** level;
-    if (id === "networkRate") next.networkRateMultiplier *= 0.9 ** level;
-    if (id === "load") next.maxLoad += 2 * level;
-    if (id === "radar") next.crisisWarnRatio = Math.min(0.58, next.crisisWarnRatio + 0.1 * level);
-  });
-  return next;
-}
-
-function level() {
-  return LEVELS[currentLevelIndex] || LEVELS[LEVELS.length - 1];
-}
-
-function resetState() {
-  rules = applyUpgrades();
-  Object.assign(state, {
-    running: false,
-    ended: false,
-    timeLeft: level().duration,
-    elapsed: 0,
-    spawnTimer: 0,
-    caseTimer: 0,
-    docTimer: 0,
-    networkTimer: 0,
-    nextId: 1,
-    locked: 0,
-    completed: 0,
-    expired: 0,
-    crisisMissed: 0,
-    lastWarningAt: -10,
-    rest: { active: false, progress: 0, cooldownUntil: 0, noticeAt: -10, cancelUntil: -10 },
-    offeredUpgrades: [],
-    selectedUpgrade: null,
-    resultMode: "restart",
-    metrics: { life: rules.initialLife, case: 20, doc: 20, network: 20 },
-    tasks: [],
-    hand: [],
-    powerups: [],
-    meritSpawned: {},
-  });
-  POWERUP_TIMES.forEach(time => { state.meritSpawned[time] = false; });
-  playerState.x = 450;
-  playerState.y = 350;
-  keys.clear();
-  restFill.style.width = "0%";
-  restZone.classList.remove("resting", "cooling");
-}
-
-function setupUi() {
-  if (!document.querySelector("#time-card")) {
-    const card = document.createElement("article");
-    card.id = "time-card";
-    card.className = "status-card status-time";
-    card.innerHTML = `<div class="status-heading"><span>⏱ 倒數</span><strong><span id="time-left-value">60</span>s</strong></div><div class="meter"><span id="time-meter" style="width:100%"></span></div>`;
-    statusBar.append(card);
+  },
+  yellow: {
+    color: '#c9930a',
+    bgColor: '#fef9e7',
+    border: '#a07800',
+    label: '行政紀錄',
+    zone: ['desk'],
+    texts: ['服務紀錄', '評估表', '成果回報', '系統登打'],
+    urgency: 38,
+    onComplete(s) { s.recordPressure = clamp(s.recordPressure - 14, 0, 100); },
+    onExpire(s)   { s.recordPressure = clamp(s.recordPressure + 11, 0, 100); }
+  },
+  purple: {
+    color: '#8e44ad',
+    bgColor: '#f5eef8',
+    border: '#6c3483',
+    label: '網絡聯繫',
+    zone: ['meeting'],
+    texts: ['法院回覆', '警政聯繫', '醫療轉介', '學校聯繫'],
+    urgency: 32,
+    onComplete(s) { s.serviceProgress = clamp(s.serviceProgress + 7, 0, 100); },
+    onExpire(s) {
+      s.recordPressure  = clamp(s.recordPressure + 9, 0, 100);
+      s.serviceProgress = clamp(s.serviceProgress - 3, 0, 100);
+    }
+  },
+  green: {
+    color: '#27ae60',
+    bgColor: '#d5f5e3',
+    border: '#1e8449',
+    label: '支持資源',
+    zone: ['supervisor', 'rest'],
+    texts: ['督導討論', '同事協助', '短暫休息', '資源清單'],
+    urgency: 48,
+    onComplete(s) {
+      s.workerEnergy = clamp(s.workerEnergy + 22, 0, 100);
+      s.caseSafety   = clamp(s.caseSafety + 4, 0, 100);
+    },
+    onExpire(s) { s.workerEnergy = clamp(s.workerEnergy - 4, 0, 100); }
   }
-  if (!document.querySelector("#result-overlay")) {
-    const overlay = document.createElement("section");
-    overlay.id = "result-overlay";
-    overlay.className = "result-overlay";
-    overlay.hidden = true;
-    overlay.innerHTML = `<article class="result-card">
-      <section class="result-section">
-        <h2 id="result-title"></h2>
-        <p id="result-ending" class="result-ending"></p>
-        <div id="result-stats" class="result-stats"></div>
-      </section>
-      <section class="result-section">
-        <h3>選擇一個升級</h3>
-        <div id="upgrade-choices" class="upgrade-choices"></div>
-        <p id="upgrade-picked" class="upgrade-picked"></p>
-      </section>
-      <button id="restart-button" class="start-button" type="button">再撐一天</button>
-    </article>`;
-    resultScreen.append(overlay);
-    document.querySelector("#restart-button").addEventListener("click", handleResultButton);
+};
+
+// ============================================================
+// SURGE EVENT POOL
+// ============================================================
+const SURGE_POOL = [
+  { text: '突發事件：主管臨時會議', type: 'purple' },
+  { text: '突發事件：法院催資料',   type: 'yellow' },
+  { text: '突發事件：個案突然來電', type: 'red'    },
+  { text: '突發事件：家訪延誤',     type: 'blue'   },
+  { text: '突發事件：網絡單位要求回覆', type: 'purple' },
+  { text: '突發事件：評估期限到期', type: 'yellow' },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let G = {};          // game stats
+let player = {};
+let mapTasks = [];   // tasks lying on map
+let heldTasks = [];  // tasks carried by player
+let effects = [];    // visual pop effects
+let taskSeq = 0;
+
+const keys = { up: false, down: false, left: false, right: false };
+const touch = { up: false, down: false, left: false, right: false };
+
+let spawnTimer = 0;
+let surgeTimer = 0;
+let nextSurge  = 0;
+let evtTimer   = 0;
+let wrongTimer = 0;
+let arrowHint  = null;
+let deliverTimer = 0;   // cooldown between deliveries
+let lastZoneId   = null; // track zone entry to avoid hint spam
+
+let canvas, ctx, cScale = 1;
+let raf = null;
+let lastT = 0;
+let completed = 0;
+let uncompleted = 0;
+
+// ============================================================
+// UTIL
+// ============================================================
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand  = (a, b) => Math.random() * (b - a) + a;
+const pick  = arr => arr[0 | (Math.random() * arr.length)];
+
+function dist2(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getPhase(elapsed) {
+  if (elapsed < 30) return { name: '上午', idx: 0 };
+  if (elapsed < 60) return { name: '下午', idx: 1 };
+  return { name: '傍晚', idx: 2 };
+}
+
+function spawnWeights(phase) {
+  if (phase === 0) return ['blue','blue','yellow','yellow','purple'];
+  if (phase === 1) return ['blue','yellow','purple','red','red','green'];
+  return ['red','red','yellow','yellow','purple','purple','green'];
+}
+
+function spawnInterval(phase) {
+  return [8, 5.5, 4][phase];
+}
+
+// Safe positions avoid zones, player start, and the map edges
+// X range capped at MAP_W-80 so cards don't appear under zone right edges
+function safePosOnMap() {
+  const playerStartX = MAP_W / 2, playerStartY = MAP_H / 2;
+  for (let i = 0; i < 100; i++) {
+    const x = rand(55, MAP_W - 80);
+    const y = rand(55, MAP_H - 55);
+    if (dist2(x, y, playerStartX, playerStartY) < 75) continue;
+    let blocked = false;
+    for (const z of ZONES) {
+      if (x > z.x - 35 && x < z.x + z.w + 35 &&
+          y > z.y - 35 && y < z.y + z.h + 35) {
+        blocked = true; break;
+      }
+    }
+    if (!blocked) return { x, y };
   }
-  if (!document.querySelector("#screen-flash")) {
-    const flash = document.createElement("div");
-    flash.id = "screen-flash";
-    flash.className = "screen-flash";
-    document.body.append(flash);
+  return { x: 250, y: 280 }; // central open area fallback
+}
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+function setupCanvas() {
+  if (!canvas) {
+    canvas = document.getElementById('game-canvas');
+    ctx    = canvas.getContext('2d');
   }
-  debugPanel.hidden = true;
-  activeUpgradesPanel.hidden = true;
+  resizeCanvas();
 }
 
-function setScreen(screen) {
-  homeScreen.hidden = screen !== "home";
-  rulesScreen.hidden = screen !== "rules";
-  gameScreen.hidden = screen !== "game";
-  resultScreen.hidden = screen !== "result";
+function resizeCanvas() {
+  if (!canvas) return;
+  const area = document.getElementById('game-area');
+  // Force layout read; fallback to viewport estimates
+  let aw = area.clientWidth;
+  let ah = area.clientHeight;
+  if (aw <= 0) aw = window.innerWidth  - 200; // subtract sidebar estimate
+  if (ah <= 0) ah = window.innerHeight - 160; // subtract bars estimate
+  if (aw <= 0) aw = 600;
+  if (ah <= 0) ah = 400;
+  cScale        = Math.min(aw / MAP_W, ah / MAP_H);
+  // Always set canvas rendering resolution
+  canvas.width  = MAP_W;
+  canvas.height = MAP_H;
+  canvas.style.width  = Math.floor(MAP_W * cScale) + 'px';
+  canvas.style.height = Math.floor(MAP_H * cScale) + 'px';
 }
 
-function showHomeScreen() {
-  state.running = false;
-  keys.clear();
-  document.querySelector("#result-overlay")?.setAttribute("hidden", "");
-  setScreen("home");
-}
-
-function showRulesScreen() {
-  state.running = false;
-  keys.clear();
-  document.querySelector("#result-overlay")?.setAttribute("hidden", "");
-  setScreen("rules");
-}
-
-function showGameScreen() {
-  setScreen("game");
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function currentLoad() {
-  return state.hand.reduce((sum, task) => sum + task.weight, 0);
-}
-
-function phaseKey() {
-  if (state.timeLeft > 44) return "early";
-  if (state.timeLeft > 24) return "mid";
-  return "late";
-}
-
-function phase() {
-  const key = phaseKey();
-  return {
-    interval: BASE_PHASES[key].interval / level().spawnSpeedMultiplier,
-    weights: level().weights[key],
-  };
-}
-
-function moveSpeed() {
-  let speed = BASE_SPEED * rules.speedMultiplier;
-  if (state.hand.length >= 3) speed *= 0.64;
-  else if (state.hand.length === 2) speed *= 0.76;
-  else if (state.hand.length === 1) speed *= 0.88;
-  return speed;
-}
-
-function pickWeighted(weights) {
-  const entries = Object.entries(weights);
-  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
-  let roll = Math.random() * total;
-  for (const [key, weight] of entries) {
-    roll -= weight;
-    if (roll <= 0) return key;
-  }
-  return entries[0][0];
-}
-
-function rectsOverlap(a, b) {
-  return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
-}
-
-function safePoint(point, ignoreOccupancy = false) {
-  const mapRect = mapArea.getBoundingClientRect();
-  if (mapRect.width && (point.x < 0 || point.y < 0 || point.x + CARD_W > mapRect.width || point.y + CARD_H > mapRect.height)) return false;
-  const box = { left: point.x, right: point.x + CARD_W, top: point.y, bottom: point.y + CARD_H };
-  const playerBox = { left: playerState.x - 28, right: playerState.x + 118, top: playerState.y - 28, bottom: playerState.y + 92 };
-  if (rectsOverlap(box, playerBox)) return false;
-  const blockers = [...Object.values(zones), restZone];
-  const awayFromZones = blockers.every(zone => {
-    const zoneRect = zone.getBoundingClientRect();
-    const zoneBox = {
-      left: zoneRect.left - mapRect.left,
-      right: zoneRect.right - mapRect.left,
-      top: zoneRect.top - mapRect.top,
-      bottom: zoneRect.bottom - mapRect.top,
-    };
-    return !rectsOverlap(box, zoneBox);
-  });
-  if (!awayFromZones) return false;
-  if (ignoreOccupancy) return true;
-  const occupied = [...state.tasks, ...state.powerups].some(item => item.spawn === point.id);
-  return !occupied;
-}
-
-function availablePoint() {
-  return spawnPoints.find(point => safePoint(point));
-}
-
-function fallbackPoint() {
-  return spawnPoints.find(point => safePoint(point, true)) || { id: `fallback-${state.elapsed}`, x: 380, y: 250 };
-}
-
-function makeTask(type, spawn) {
-  const cfg = TASK_TYPES[type];
-  return {
-    id: `task-${state.nextId++}`,
-    kind: "task",
+// ============================================================
+// SPAWN
+// ============================================================
+function spawnTask(forceType) {
+  const elapsed = GAME_DURATION - G.timeLeft;
+  const { idx }  = getPhase(elapsed);
+  const type     = forceType || pick(spawnWeights(idx));
+  const def      = TASK_DEFS[type];
+  const pos      = safePosOnMap();
+  mapTasks.push({
+    id:     taskSeq++,
     type,
-    emoji: cfg.emoji,
-    title: cfg.titles[Math.floor(Math.random() * cfg.titles.length)],
-    color: cfg.color,
-    target: cfg.target,
-    weight: cfg.weight,
-    deadline: cfg.deadline,
-    complete: { ...cfg.complete },
-    expire: { ...cfg.expire },
-    created: state.elapsed,
-    spawn,
-  };
-}
-
-function spawn(type) {
-  if (state.tasks.length >= MAX_MAP_TASKS) return false;
-  const point = availablePoint();
-  if (!point) return false;
-  state.tasks.push(makeTask(type, point.id));
-  renderTasks();
-  return true;
-}
-
-function maybeSpawnMerit() {
-  POWERUP_TIMES.forEach(time => {
-    if (!state.meritSpawned[time] && state.timeLeft <= time) {
-      state.meritSpawned[time] = true;
-      spawnMerit();
-    }
+    text:   pick(def.texts),
+    x:      pos.x,
+    y:      pos.y,
+    age:    0,
+    maxAge: def.urgency,
   });
 }
 
-function spawnMerit() {
-  const point = availablePoint() || fallbackPoint();
-  state.powerups.push({
-    id: `merit-${state.nextId++}`,
-    kind: "merit",
-    spawn: point.id,
-    x: point.x,
-    y: point.y,
-  });
-  renderTasks();
+// ============================================================
+// PLAYER SPEED
+// ============================================================
+function playerSpeed() {
+  const n = heldTasks.length;
+  if (n <= 2) return 170;
+  if (n <= 4) return 138;
+  if (n <= 6) return 108;
+  return 88;
 }
 
-function updatePlayer() {
-  const mapRect = mapArea.getBoundingClientRect();
-  const playerRect = player.getBoundingClientRect();
-  playerState.x = clamp(playerState.x, 0, Math.max(0, mapRect.width - playerRect.width));
-  playerState.y = clamp(playerState.y, 0, Math.max(0, mapRect.height - playerRect.height));
-  player.style.left = `${playerState.x}px`;
-  player.style.top = `${playerState.y}px`;
+// ============================================================
+// MOVEMENT
+// ============================================================
+function movePlayer(dt) {
+  let dx = 0, dy = 0;
+  if (keys.up    || touch.up)    dy -= 1;
+  if (keys.down  || touch.down)  dy += 1;
+  if (keys.left  || touch.left)  dx -= 1;
+  if (keys.right || touch.right) dx += 1;
+
+  if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
+
+  const spd = playerSpeed();
+  player.x = clamp(player.x + dx * spd * dt, PLAYER_R, MAP_W - PLAYER_R);
+  player.y = clamp(player.y + dy * spd * dt, PLAYER_R, MAP_H - PLAYER_R);
 }
 
-function overlapElement(a, b, pad = 12) {
-  const ar = a.getBoundingClientRect();
-  const br = b.getBoundingClientRect();
-  return !(ar.right + pad < br.left || ar.left - pad > br.right || ar.bottom + pad < br.top || ar.top - pad > br.bottom);
-}
-
-function updateHud() {
-  Object.entries(state.metrics).forEach(([key, value]) => {
-    const max = key === "life" ? rules.maxLife : 100;
-    const capped = clamp(value, 0, max);
-    state.metrics[key] = capped;
-    meters[key].value.textContent = Math.round(capped);
-    meters[key].meter.style.width = `${clamp((capped / max) * 100, 0, 100)}%`;
-    const danger = key === "life" ? capped < 30 : capped >= 75;
-    meters[key].card.classList.toggle("danger", danger);
-    meters[key].card.classList.toggle("critical", key !== "life" && capped >= 90);
-  });
-  document.body.classList.toggle("danger-edge", state.metrics.life < 30 || state.metrics.case >= 90 || state.metrics.doc >= 90 || state.metrics.network >= 90);
-  player.classList.toggle("tired", state.metrics.life < 30);
-  document.querySelector("#time-left-value").textContent = Math.max(0, Math.ceil(state.timeLeft));
-  document.querySelector("#time-meter").style.width = `${(state.timeLeft / level().duration) * 100}%`;
-  document.querySelector(".goal-panel h2").textContent = level().label;
-  document.querySelector("#goal-completed").textContent = `✅ 達成KPI ${state.completed} / ${level().kpiTarget}`;
-}
-
-function updateHand() {
-  loadSummary.textContent = `負荷 ${currentLoad()} / ${rules.maxLoad}`;
-  if (state.hand.length === 0) {
-    handList.className = "hand-list empty";
-    handList.textContent = "目前手上沒有任務";
-  } else {
-    handList.className = "hand-list";
-    handList.innerHTML = state.hand.map((task, index) => {
-      const active = index === state.locked ? "active" : "";
-      const ratio = clamp((task.deadline - (state.elapsed - task.created)) / task.deadline, 0, 1);
-      return `<article class="hand-slot ${active} task-${task.color}">
-        <b>${task.emoji} ${task.title}</b>
-        <div class="mini-life"><i style="width:${ratio * 100}%"></i></div>
-      </article>`;
-    }).join("");
-  }
-  loadWarning.textContent = state.hand.length >= MAX_HAND ? "手上已滿 3/3" : currentLoad() >= rules.maxLoad - 1 ? "負荷太高" : "";
-  loadWarning.classList.toggle("is-visible", state.hand.length >= MAX_HAND || currentLoad() >= rules.maxLoad - 1);
-  highlightTarget();
-}
-
-function highlightTarget() {
-  Object.values(zones).forEach(zone => zone.classList.remove("target"));
-  if (state.hand.length === 0) return;
-  state.locked = clamp(state.locked, 0, state.hand.length - 1);
-  zones[state.hand[state.locked].target]?.classList.add("target");
-}
-
-function renderTasks() {
-  taskLayer.innerHTML = "";
-  state.tasks.forEach(task => {
-    const point = spawnPoints.find(spawnPoint => spawnPoint.id === task.spawn);
-    if (!point) return;
-    const ratio = clamp((task.deadline - (state.elapsed - task.created)) / task.deadline, 0, 1);
-    const urgentLine = task.type === "crisis" ? rules.crisisWarnRatio : 0.28;
-    const card = document.createElement("article");
-    card.className = `task-card task-${task.color} ${ratio < urgentLine ? "urgent" : ""} ${task.type === "crisis" ? "crisis" : ""}`;
-    card.dataset.id = task.id;
-    card.style.left = `${point.x}px`;
-    card.style.top = `${point.y}px`;
-    card.innerHTML = `<div class="task-card-head"><span>${task.emoji}</span></div>
-      <div class="task-card-title">${task.title}</div>
-      <div class="task-life"><span style="width:${ratio * 100}%"></span></div>`;
-    taskLayer.append(card);
-  });
-  state.powerups.forEach(powerup => {
-    const point = spawnPoints.find(spawnPoint => spawnPoint.id === powerup.spawn) || powerup;
-    const card = document.createElement("article");
-    card.className = "powerup-merit";
-    card.dataset.id = powerup.id;
-    card.style.left = `${point.x}px`;
-    card.style.top = `${point.y}px`;
-    card.innerHTML = `<span>🙏</span><b>功德無量</b>`;
-    taskLayer.append(card);
-  });
-}
-
-function refreshTaskBars() {
-  let shouldRerender = false;
-  taskLayer.querySelectorAll(".task-card").forEach(card => {
-    const task = state.tasks.find(item => item.id === card.dataset.id);
-    if (!task) return;
-    const ratio = clamp((task.deadline - (state.elapsed - task.created)) / task.deadline, 0, 1);
-    card.querySelector(".task-life span").style.width = `${ratio * 100}%`;
-    const urgentLine = task.type === "crisis" ? rules.crisisWarnRatio : 0.28;
-    if ((ratio < urgentLine) !== card.classList.contains("urgent")) shouldRerender = true;
-  });
-  if (shouldRerender) renderTasks();
-}
-
-function toast(text) {
-  clearTimeout(toastTimer);
-  gameMessage.textContent = text;
-  gameMessage.classList.remove("is-muted");
-  toastTimer = setTimeout(() => gameMessage.classList.add("is-muted"), 1800);
-}
-
-function floatText(text) {
-  const el = document.createElement("div");
-  el.className = "float-text";
-  el.textContent = text;
-  el.style.left = `${playerState.x + 26}px`;
-  el.style.top = `${playerState.y - 20}px`;
-  mapArea.append(el);
-  setTimeout(() => el.remove(), 850);
-}
-
-function flash() {
-  const el = document.querySelector("#screen-flash");
-  el.className = "screen-flash active";
-  setTimeout(() => { el.className = "screen-flash"; }, 360);
-}
-
-function meritFlash() {
-  const el = document.querySelector("#screen-flash");
-  el.className = "screen-flash merit";
-  setTimeout(() => { el.className = "screen-flash"; }, 420);
-}
-
-function applyEffects(effects, opts = {}) {
-  Object.entries(effects).forEach(([key, value]) => {
-    if (key === "crisisMiss") state.crisisMissed += value;
-    else state.metrics[key] = clamp(state.metrics[key] + value, 0, key === "life" ? rules.maxLife : 100);
-  });
-  updateHud();
-  if (!opts.skipEnd) checkGameOver();
-}
-
-function pickup(task) {
-  if (task.collecting) return;
-  if (state.hand.length >= MAX_HAND) return toast("手上已滿 3/3");
-  if (currentLoad() + task.weight > rules.maxLoad) return toast("負荷太高");
-  task.collecting = true;
-  taskLayer.querySelector(`[data-id="${task.id}"]`)?.classList.add("collected");
-  toast("目的地已發光");
-  floatText("接起");
-  setTimeout(() => {
-    state.tasks = state.tasks.filter(item => item.id !== task.id);
-    state.hand.push(task);
-    state.locked = state.hand.length - 1;
-    renderTasks();
-    updateHand();
-  }, 160);
-}
-
-function pickupMerit(powerup) {
-  state.tasks = [];
-  state.powerups = state.powerups.filter(item => item.id !== powerup.id);
-  toast("🙏 功德無量！場上任務清空");
-  floatText("功德無量");
-  meritFlash();
-  renderTasks();
-}
-
-function deliver(zoneKey) {
-  const done = state.hand.filter(task => task.target === zoneKey);
-  if (done.length === 0) return false;
-  state.hand = state.hand.filter(task => task.target !== zoneKey);
-  done.forEach(task => {
-    state.completed += 1;
-    applyEffects(task.complete);
-  });
-  state.locked = 0;
-  toast(done.length > 1 ? `KPI +${done.length}` : "KPI +1");
-  floatText("KPI +1");
-  updateHand();
-  if (state.completed >= level().kpiTarget) passLevel();
-  return true;
-}
-
+// ============================================================
+// PICKUP
+// ============================================================
 function checkPickup() {
-  taskLayer.querySelectorAll(".task-card").forEach(card => {
-    const task = state.tasks.find(item => item.id === card.dataset.id);
-    if (task && overlapElement(player, card)) pickup(task);
-  });
-  taskLayer.querySelectorAll(".powerup-merit").forEach(card => {
-    const powerup = state.powerups.find(item => item.id === card.dataset.id);
-    if (powerup && overlapElement(player, card)) pickupMerit(powerup);
-  });
+  if (heldTasks.length >= MAX_CARRY) return;
+  for (let i = mapTasks.length - 1; i >= 0; i--) {
+    const t = mapTasks[i];
+    if (dist2(player.x, player.y, t.x, t.y) < PICKUP_R) {
+      heldTasks.push(t);
+      mapTasks.splice(i, 1);
+      updateTaskListDOM();
+      return;
+    }
+  }
+}
+
+// ============================================================
+// DELIVERY
+// ============================================================
+// Use center-circle detection to avoid zone-overlap false triggers.
+// Each zone gets radius = min(w,h)*0.42 + 10 (generous but non-overlapping).
+function zoneDeliverRadius(z) {
+  return Math.min(z.w, z.h) * 0.42 + 10;
 }
 
 function checkDelivery() {
-  Object.entries(zones).forEach(([key, zone]) => {
-    if (!overlapElement(player, zone, 2)) return;
-    const hadTask = state.hand.length > 0;
-    const delivered = deliver(key);
-    if (!delivered && hadTask && state.elapsed - wrongHintAt > 1.4) {
-      wrongHintAt = state.elapsed;
-      toast("這裡不是目的地");
+  if (heldTasks.length === 0) { lastZoneId = null; return; }
+  if (deliverTimer > 0) return;
+
+  // Find the closest zone the player is inside
+  let nearZone = null, nearDist = Infinity;
+  for (const zone of ZONES) {
+    const cx = zone.x + zone.w / 2, cy = zone.y + zone.h / 2;
+    const d  = dist2(player.x, player.y, cx, cy);
+    if (d < zoneDeliverRadius(zone) && d < nearDist) {
+      nearDist = d;
+      nearZone = zone;
     }
-  });
-}
-
-function cancelRest(message = "休息中斷") {
-  if (!state.rest.active) return;
-  state.rest.active = false;
-  state.rest.progress = 0;
-  state.rest.cancelUntil = state.elapsed + 0.5;
-  restZone.classList.remove("resting");
-  restFill.style.width = "0%";
-  if (message) toast(message);
-}
-
-function completeRest() {
-  state.rest.active = false;
-  state.rest.progress = 0;
-  state.rest.cooldownUntil = state.elapsed + rules.restCooldown;
-  state.metrics.life = clamp(state.metrics.life + rules.restHeal, 0, rules.maxLife);
-  restZone.classList.remove("resting");
-  restFill.style.width = "0%";
-  toast("喘了一口氣");
-  floatText("休息 +");
-  updateHud();
-}
-
-function processRest(dt) {
-  const inRest = overlapElement(player, restZone, 2);
-  restZone.classList.toggle("cooling", state.elapsed < state.rest.cooldownUntil);
-  if (!inRest) {
-    if (state.rest.active) cancelRest();
-    return;
   }
-  if (!state.rest.active) {
-    if (state.elapsed < state.rest.cancelUntil) return;
-    if (state.metrics.life >= 85) {
-      if (state.elapsed - state.rest.noticeAt > 2) {
-        toast("現在還撐得住");
-        state.rest.noticeAt = state.elapsed;
-      }
-      return;
+
+  if (!nearZone) { lastZoneId = null; return; }
+
+  // Try to deliver one matching task
+  let delivered = false;
+  for (let i = heldTasks.length - 1; i >= 0; i--) {
+    const t   = heldTasks[i];
+    const def = TASK_DEFS[t.type];
+    if (def.zone.includes(nearZone.id)) {
+      def.onComplete(G);
+      completed++;
+      heldTasks.splice(i, 1);
+      delivered = true;
+      deliverTimer = DELIVER_COOLDOWN;
+      effects.push({ x: nearZone.x + nearZone.w / 2, y: nearZone.y + nearZone.h / 2, age: 0, type: t.type });
+      updateTaskListDOM();
+      lastZoneId = nearZone.id; // allow next delivery to same zone after cooldown
+      break;
     }
-    if (state.elapsed < state.rest.cooldownUntil) {
-      if (state.elapsed - state.rest.noticeAt > 2) {
-        toast("還不能休息");
-        state.rest.noticeAt = state.elapsed;
-      }
-      return;
+  }
+
+  // Show wrong-zone hint only once per zone entry (not every frame)
+  if (!delivered && lastZoneId !== nearZone.id) {
+    showWrongHint();
+    lastZoneId = nearZone.id;
+  }
+}
+
+// ============================================================
+// STATS TICK
+// ============================================================
+function tickStats(dt) {
+  const base  = 0.45;                   // reduced from 0.55
+  const extra = heldTasks.length * 0.10; // reduced from 0.18
+  G.workerEnergy = clamp(G.workerEnergy - (base + extra) * dt, 0, 100);
+
+  for (let i = mapTasks.length - 1; i >= 0; i--) {
+    mapTasks[i].age += dt;
+    if (mapTasks[i].age >= mapTasks[i].maxAge) {
+      TASK_DEFS[mapTasks[i].type].onExpire(G);
+      uncompleted++;
+      mapTasks.splice(i, 1);
     }
-    state.rest.active = true;
-    state.rest.progress = 0;
-    restZone.classList.add("resting");
-    toast("休息中...");
   }
-  state.rest.progress += dt;
-  restFill.style.width = `${clamp(state.rest.progress / 2, 0, 1) * 100}%`;
-  if (state.rest.progress >= 2) completeRest();
-}
 
-function expireTasks() {
-  const expiredTasks = state.tasks.filter(task => state.elapsed - task.created >= task.deadline);
-  if (expiredTasks.length === 0) return;
-  state.tasks = state.tasks.filter(task => state.elapsed - task.created < task.deadline);
-  expiredTasks.forEach(task => {
-    state.expired += 1;
-    if (task.type === "crisis") flash();
-    applyEffects(task.expire, { skipEnd: true });
-    toast(`延誤 ${task.emoji} ${task.title}`);
-  });
-  renderTasks();
-  checkGameOver();
-}
-
-function naturalPressure(dt) {
-  let drain = 0.9;
-  if (state.hand.length === 2) drain += 0.55;
-  if (state.hand.length === 3) drain += 1.1;
-  state.metrics.life -= drain * rules.lifeDrainMultiplier * dt;
-
-  state.caseTimer += dt;
-  state.docTimer += dt;
-  state.networkTimer += dt;
-  if (state.caseTimer >= 5 / rules.caseRateMultiplier) {
-    state.caseTimer = 0;
-    state.metrics.case += 3;
+  for (const t of heldTasks) {
+    t.age = clamp(t.age + dt * 0.35, 0, t.maxAge);
   }
-  if (state.docTimer >= 4.5 / rules.docRateMultiplier) {
-    state.docTimer = 0;
-    state.metrics.doc += 4;
-  }
-  if (state.networkTimer >= 6 / rules.networkRateMultiplier) {
-    state.networkTimer = 0;
-    state.metrics.network += 3;
-  }
-  updateHud();
 }
 
-function checkWarnings() {
-  if (state.elapsed - state.lastWarningAt <= 3.2) return;
-  if (state.metrics.life < 30) toastAndMark("你快撐不住了");
-  else if (state.metrics.case >= 90 || state.metrics.doc >= 90 || state.metrics.network >= 90) toastAndMark("再不處理就會爆表");
-  else if (state.metrics.case >= 75) toastAndMark("個案壓力快爆了");
-  else if (state.metrics.doc >= 75) toastAndMark("文件壓力快爆了");
-  else if (state.metrics.network >= 75) toastAndMark("網絡壓力快爆了");
-}
+// ============================================================
+// ARROW HINT
+// ============================================================
+function updateArrow() {
+  const elapsed = GAME_DURATION - G.timeLeft;
+  const hasRed  = heldTasks.some(t => t.type === 'red') || mapTasks.some(t => t.type === 'red');
 
-function toastAndMark(text) {
-  toast(text);
-  state.lastWarningAt = state.elapsed;
-}
-
-function checkGameOver() {
-  if (state.ended) return;
-  if (state.metrics.life <= 0) endGame("life");
-  else if (state.metrics.case >= 100) endGame("case");
-  else if (state.metrics.doc >= 100) endGame("doc");
-  else if (state.metrics.network >= 100) endGame("network");
-}
-
-function resultText(reason) {
-  if (reason === "life") return ["你先倒下了", "你接了太多，最後先倒下的是工作者自己。"];
-  if (reason === "case") return ["個案壓力爆表", "太多個案端壓力沒被即時處理，安全線失守了。"];
-  if (reason === "doc") return ["文件壓力爆表", "紀錄、登打與補件把一天淹沒了。"];
-  if (reason === "network") return ["網絡壓力爆表", "協調與轉介沒有接上，網絡壓力失控了。"];
-  return ["時間到了", "你撐到了這一輪，但 KPI 還沒完全達成。"];
-}
-
-function drawUpgrades() {
-  return [...UPGRADES]
-    .filter(upgrade => upgradeLevel(upgrade.id) < 3)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-}
-
-function renderUpgradeChoices() {
-  const box = document.querySelector("#upgrade-choices");
-  box.innerHTML = state.offeredUpgrades.map(upgrade => {
-    const levelNow = upgradeLevel(upgrade.id);
-    const selected = state.selectedUpgrade === upgrade.id ? "selected" : "";
-    return `<button class="upgrade-card ${selected}" data-upgrade="${upgrade.id}" type="button">
-      <span>${upgrade.emoji}</span>
-      <b>${upgrade.name}</b>
-      <small>${upgrade.text}</small>
-      <em>Lv.${levelNow} / 3</em>
-    </button>`;
-  }).join("");
-  box.querySelectorAll(".upgrade-card").forEach(card => {
-    card.addEventListener("click", () => chooseUpgrade(card.dataset.upgrade));
-  });
-}
-
-function chooseUpgrade(id) {
-  if (state.selectedUpgrade) return;
-  const upgrade = UPGRADES.find(item => item.id === id);
-  activeUpgrades[id] = Math.min(3, upgradeLevel(id) + 1);
-  state.selectedUpgrade = id;
-  saveUpgrades();
-  rules = applyUpgrades();
-  document.querySelector("#upgrade-picked").textContent = `已選擇升級：${upgrade.name}`;
-  renderUpgradeChoices();
-  renderActiveUpgrades();
-}
-
-function showResult(title, body, mode) {
-  setScreen("result");
-  state.resultMode = mode;
-  state.offeredUpgrades = drawUpgrades();
-  state.selectedUpgrade = null;
-  document.querySelector("#result-title").textContent = title;
-  document.querySelector("#result-ending").textContent = body;
-  document.querySelector("#result-stats").innerHTML = `
-    <span>${level().name}</span>
-    <span>達成KPI ${state.completed} / ${level().kpiTarget}</span>
-    <span>生命 ${Math.round(state.metrics.life)}</span>
-    <span>個案壓力 ${Math.round(state.metrics.case)}</span>
-    <span>文件壓力 ${Math.round(state.metrics.doc)}</span>
-    <span>網絡壓力 ${Math.round(state.metrics.network)}</span>`;
-  document.querySelector("#upgrade-picked").textContent = "";
-  document.querySelector("#restart-button").textContent = mode === "next" ? "進入下一關" : "重新開始";
-  renderUpgradeChoices();
-  setTimeout(() => { document.querySelector("#result-overlay").hidden = false; }, 260);
-}
-
-function showLevelClearScreen() {
-  const hasNext = currentLevelIndex < LEVELS.length - 1;
-  showResult(level().passTitle, level().passText, hasNext ? "next" : "restart");
-}
-
-function showGameOverScreen(reason) {
-  const [title, body] = resultText(reason);
-  showResult(title, body, "restart");
-}
-
-function endGame(reason = "time") {
-  if (state.ended) return;
-  state.running = false;
-  state.ended = true;
-  keys.clear();
-  cancelRest("");
-  if (reason !== "time") flash();
-  showGameOverScreen(reason);
-}
-
-function passLevel() {
-  if (state.ended) return;
-  state.running = false;
-  state.ended = true;
-  keys.clear();
-  cancelRest("");
-  showLevelClearScreen();
-}
-
-function handleResultButton() {
-  if (state.resultMode === "next") {
-    currentLevelIndex = Math.min(currentLevelIndex + 1, LEVELS.length - 1);
-    startLevel(currentLevelIndex + 1);
+  if (G.workerEnergy < 30) {
+    const z = ZONES.find(z => z.id === 'rest');
+    arrowHint = { tx: z.x + z.w / 2, ty: z.y + z.h / 2, color: '#52b788' };
+  } else if (G.recordPressure > 70) {
+    const z = ZONES.find(z => z.id === 'desk');
+    arrowHint = { tx: z.x + z.w / 2, ty: z.y + z.h / 2, color: '#c9930a' };
+  } else if (hasRed) {
+    const z = ZONES.find(z => z.id === 'crisis');
+    arrowHint = { tx: z.x + z.w / 2, ty: z.y + z.h / 2, color: '#e74c3c' };
+  } else if (elapsed < 15) {
+    const z = ZONES.find(z => z.id === 'desk');
+    arrowHint = { tx: z.x + z.w / 2, ty: z.y + z.h / 2, color: '#27ae60' };
   } else {
-    currentLevelIndex = 0;
-    startLevel(1);
+    arrowHint = null;
   }
 }
 
-function renderActiveUpgrades() {
-  const entries = Object.entries(activeUpgrades).filter(([, levelNow]) => levelNow > 0);
-  if (entries.length === 0) {
-    activeUpgradesPanel.innerHTML = "<p>尚未取得升級</p>";
-    return;
-  }
-  activeUpgradesPanel.innerHTML = entries.map(([id, levelNow]) => {
-    const upgrade = UPGRADES.find(item => item.id === id);
-    return `<p>${upgrade.emoji} ${upgrade.name} Lv.${levelNow}</p>`;
-  }).join("");
+// ============================================================
+// SURGE
+// ============================================================
+function triggerSurge() {
+  const evt = pick(SURGE_POOL);
+  showEventBanner(evt.text);
+  spawnTask(evt.type);
+  if (Math.random() < 0.45) spawnTask(evt.type);
 }
 
-function updateDebug() {
-  debugPanel.innerHTML = `<strong>DEBUG</strong>
-    <span>phase: v4.5 levels</span>
-    <span>level: ${level().id}</span>
-    <span>timeLeft: ${Math.ceil(state.timeLeft)}</span>
-    <span>spawn interval: ${phase().interval.toFixed(2)}s</span>
-    <span>load: ${currentLoad()} / ${rules.maxLoad}</span>
-    <span>tasks on map: ${state.tasks.length}</span>
-    <span>powerups: ${state.powerups.length}</span>
-    <span>completed: ${state.completed}</span>
-    <span>canvas: not used</span>`;
+// ============================================================
+// RENDER
+// ============================================================
+function render(elapsed) {
+  // Reset critical context state at start of every frame
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur  = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.setLineDash([]);
+
+  ctx.clearRect(0, 0, MAP_W, MAP_H);
+
+  // ── Background ──
+  ctx.fillStyle = '#F0ECE4';
+  ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+  // Floor grid (subtle)
+  ctx.strokeStyle = '#DDD6CC';
+  ctx.lineWidth   = 0.8;
+  for (let gx = 0; gx <= MAP_W; gx += 60) {
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, MAP_H); ctx.stroke();
+  }
+  for (let gy = 0; gy <= MAP_H; gy += 60) {
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(MAP_W, gy); ctx.stroke();
+  }
+
+  // Open corridors (slightly lighter strip)
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(228, 0, 60, MAP_H);   // vertical
+  ctx.fillRect(0, 175, MAP_W, 60);   // horizontal upper
+  ctx.fillRect(0, 360, MAP_W, 16);   // horizontal lower divider
+
+  // ── Zones ──
+  for (const z of ZONES) drawZone(z);
+
+  // ── Arrow hint ──
+  if (arrowHint) {
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; // reset before arrow
+    drawArrow(player.x, player.y, arrowHint.tx, arrowHint.ty, arrowHint.color);
+  }
+
+  // ── Map tasks ──
+  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+  for (const t of mapTasks) drawTaskCard(t);
+
+  // ── Delivery effects ──
+  for (const fx of effects) {
+    const a = Math.max(0, 1 - fx.age / 0.6);
+    ctx.globalAlpha  = a;
+    ctx.strokeStyle  = TASK_DEFS[fx.type].color;
+    ctx.lineWidth    = 3;
+    ctx.shadowBlur   = 0;
+    ctx.beginPath();
+    ctx.arc(fx.x, fx.y, 20 + fx.age * 55, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle    = TASK_DEFS[fx.type].color;
+    ctx.font         = 'bold 20px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✓', fx.x, fx.y - fx.age * 28);
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Player ──
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur  = 0;
+  drawPlayer();
+
+  // ── Tutorial banner (first 8 s, per spec) ──
+  if (elapsed < 8) {
+    const alpha = elapsed > 5 ? (8 - elapsed) / 3 : 1;
+    const bw = 460, bh = 44, bx = MAP_W / 2 - bw / 2, by = MAP_H / 2 - 120;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = 'rgba(20, 40, 70, 0.88)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth   = 1.5;
+    rrect(ctx, bx, by, bw, bh, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle    = '#FFFFFF';
+    ctx.font         = 'bold 13px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('移動社工角色，收集任務卡，送到相同顏色的工作區。', MAP_W / 2, by + bh / 2);
+    ctx.globalAlpha = 1;
+  }
 }
 
-function movePlayer() {
-  let dx = 0;
-  let dy = 0;
-  if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) dy -= 1;
-  if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) dy += 1;
-  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) dx -= 1;
-  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) dx += 1;
+// ---- helpers ----
 
-  if (state.rest.active && (dx || dy)) cancelRest();
-  if (dx === 0 && dy === 0) {
-    player.classList.remove("is-moving");
-    playerAvatar.textContent = state.rest.active ? "😌" : state.metrics.life < 30 ? "😵‍💫" : "🧑‍💼";
-    return;
+// Draw a zone as a solid office room
+function drawZone(z) {
+  const hasMatch = heldTasks.some(t => TASK_DEFS[t.type].zone.includes(z.id));
+  const cx = z.x + z.w / 2;
+  const hh = 30; // header height
+
+  // Body fill (solid light color)
+  ctx.fillStyle   = z.bodyColor;
+  ctx.strokeStyle = hasMatch ? z.headColor : z.borderColor;
+  ctx.lineWidth   = hasMatch ? 3.5 : 2;
+  rrect(ctx, z.x, z.y, z.w, z.h, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  // Colored header band (solid)
+  ctx.fillStyle = z.headColor;
+  // Use clip to keep rounded corners on header top
+  ctx.save();
+  rrect(ctx, z.x, z.y, z.w, z.h, 10);
+  ctx.clip();
+  ctx.fillRect(z.x, z.y, z.w, hh);
+  ctx.restore();
+
+  // Zone name (white text on header)
+  ctx.fillStyle    = '#FFFFFF';
+  ctx.font         = 'bold 13px sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(z.name, cx, z.y + hh / 2);
+
+  // Emoji in body center
+  ctx.font         = '24px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(z.emoji, cx, z.y + hh + (z.h - hh) * 0.42);
+
+  // Sub-label (task type accepted)
+  ctx.fillStyle    = z.borderColor;
+  ctx.font         = '10px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(z.label, cx, z.y + hh + (z.h - hh) * 0.75);
+
+  // "送到這裡" pulse badge when carrying a matching task
+  if (hasMatch) {
+    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 280);
+    const tw = 72, th = 19;
+    const tx = cx - tw / 2, ty = z.y + z.h - th - 4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle   = z.headColor;
+    rrect(ctx, tx, ty, tw, th, 9);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle    = '#fff';
+    ctx.font         = 'bold 10px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('送到這裡', cx, ty + th / 2);
   }
-  const length = Math.hypot(dx, dy) || 1;
-  playerState.x += (dx / length) * moveSpeed();
-  playerState.y += (dy / length) * moveSpeed();
-  player.classList.add("is-moving");
-  playerAvatar.textContent = state.metrics.life < 30 ? "😵‍💫" : "🏃";
-  updatePlayer();
+
+  // Reset state
+  ctx.globalAlpha = 1;
+}
+
+// Draw a task card
+function drawTaskCard(t) {
+  const def    = TASK_DEFS[t.type];
+  const ratio  = t.age / t.maxAge;
+  const urgent = ratio > 0.65;
+  const w = 92, h = 54;
+  const cx = t.x, cy = t.y;
+  const x  = cx - w / 2, y = cy - h / 2;
+  const sh = 17; // strip height
+
+  // Card drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  rrect(ctx, x + 2, y + 3, w, h, 8);
+  ctx.fill();
+
+  // Card body
+  ctx.fillStyle   = def.bgColor;
+  ctx.strokeStyle = urgent ? '#C0392B' : def.border;
+  ctx.lineWidth   = urgent ? 2.5 : 1.6;
+  rrect(ctx, x, y, w, h, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  // Color strip (top)
+  ctx.fillStyle = urgent ? '#C0392B' : def.color;
+  ctx.save();
+  rrect(ctx, x, y, w, h, 8);
+  ctx.clip();
+  ctx.fillRect(x, y, w, sh);
+  ctx.restore();
+
+  // Type label on strip
+  ctx.fillStyle    = '#fff';
+  ctx.font         = 'bold 9.5px sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(def.label, cx, y + sh / 2);
+
+  // Task text
+  ctx.fillStyle    = '#1A2535';
+  ctx.font         = 'bold 12px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(t.text, cx, y + sh + (h - sh - 10) / 2 + 2);
+
+  // Timer bar
+  const bx2 = x + 7, bw2 = w - 14, bh2 = 5, by2 = y + h - 9;
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.fillRect(bx2, by2, bw2, bh2);
+  const fill = Math.max(0, 1 - ratio);
+  ctx.fillStyle = ratio < 0.5 ? def.color : ratio < 0.75 ? '#E67E22' : '#C0392B';
+  ctx.fillRect(bx2, by2, bw2 * fill, bh2);
+}
+
+// Draw the player character
+function drawPlayer() {
+  const x = player.x, y = player.y;
+  const R = 17; // slightly bigger than PLAYER_R for drawing
+
+  // Ground shadow (ellipse)
+  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + R + 2, R + 2, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body circle
+  ctx.fillStyle   = '#3A6EA8';
+  ctx.strokeStyle = '#1E4A80';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  ctx.arc(x, y + 3, R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // White collar accent
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x, y + 3, R - 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle   = '#F5C5A3';
+  ctx.strokeStyle = '#D4956A';
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath();
+  ctx.arc(x, y - 9, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Hair
+  ctx.fillStyle = '#4A3020';
+  ctx.beginPath();
+  ctx.arc(x, y - 12, 10, Math.PI * 0.95, Math.PI * 0.05);
+  ctx.fill();
+
+  // Name label "社工"
+  ctx.fillStyle    = '#FFFFFF';
+  ctx.font         = 'bold 8px sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('社工', x, y + 4);
+
+  // Task count badge
+  if (heldTasks.length > 0) {
+    const full = heldTasks.length >= MAX_CARRY;
+    const bx   = x + R - 1, by = y - R + 2;
+    ctx.fillStyle   = full ? '#C0392B' : '#E67E22';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.arc(bx, by, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle    = '#fff';
+    ctx.font         = 'bold 9px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(heldTasks.length, bx, by);
+  }
+}
+
+function drawArrow(fx, fy, tx, ty, color) {
+  const angle = Math.atan2(ty - fy, tx - fx);
+  const pulse = 0.55 + 0.45 * Math.sin(Date.now() / 380);
+  const startD = PLAYER_R + 8;
+  const endD   = 32;
+
+  const sx = fx + Math.cos(angle) * startD;
+  const sy = fy + Math.sin(angle) * startD;
+  const ex = tx - Math.cos(angle) * endD;
+  const ey = ty - Math.sin(angle) * endD;
+
+  ctx.save();
+  ctx.globalAlpha = 0.5 + 0.5 * pulse;
+  ctx.strokeStyle = color;
+  ctx.fillStyle   = color;
+  ctx.lineWidth   = 3;
+  ctx.setLineDash([9, 6]);
+
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Arrowhead
+  const al = 13, aw = 7;
+  const bx = ex - Math.cos(angle) * al;
+  const by = ey - Math.sin(angle) * al;
+  const px = Math.sin(angle), py = -Math.cos(angle);
+
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(bx + px * aw, by + py * aw);
+  ctx.lineTo(bx - px * aw, by - py * aw);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+// DOM UPDATES
+// ============================================================
+function updateStatsDOM() {
+  const s = G;
+
+  setBar('safety',   s.caseSafety);
+  setBar('energy',   s.workerEnergy);
+  setBar('pressure', s.recordPressure);
+  setBar('progress', s.serviceProgress);
+
+  // Low energy / high pressure class
+  const energyFill = document.getElementById('bar-energy');
+  const pressureFill = document.getElementById('bar-pressure');
+  energyFill.classList.toggle('low',   s.workerEnergy < 30);
+  pressureFill.classList.toggle('high', s.recordPressure > 70);
+
+  document.getElementById('time-remaining').textContent = Math.ceil(s.timeLeft);
+  const elapsed = GAME_DURATION - s.timeLeft;
+  document.getElementById('phase-label').textContent = getPhase(elapsed).name;
+}
+
+function setBar(name, value) {
+  document.getElementById('bar-' + name).style.width = value + '%';
+  document.getElementById('val-' + name).textContent  = Math.round(value);
+}
+
+function updateTaskListDOM() {
+  const badge = document.getElementById('task-count-badge');
+  const items = document.getElementById('task-items');
+  const warn  = document.getElementById('full-warning');
+
+  badge.textContent = heldTasks.length + '/7';
+  badge.classList.toggle('full', heldTasks.length >= MAX_CARRY);
+  warn.classList.toggle('hidden', heldTasks.length < MAX_CARRY);
+
+  items.innerHTML = '';
+  for (const t of heldTasks) {
+    const def = TASK_DEFS[t.type];
+    const el  = document.createElement('div');
+    el.className = 'task-item';
+    el.style.borderLeftColor  = def.color;
+    el.style.backgroundColor  = def.bgColor;
+    el.innerHTML = `<span class="task-item-type" style="color:${def.color}">${def.label}</span><span class="task-item-text">${t.text}</span>`;
+    items.appendChild(el);
+  }
+}
+
+function showEventBanner(text) {
+  const el = document.getElementById('event-banner');
+  el.textContent = text;
+  el.classList.remove('hidden');
+  evtTimer = 3.2;
+}
+
+function showWrongHint() {
+  document.getElementById('wrong-hint').classList.remove('hidden');
+  wrongTimer = 1.8;
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function gameLoop(ts) {
+  const dt = Math.min((ts - lastT) / 1000, 0.05);
+  lastT = ts;
+
+  const elapsed = GAME_DURATION - G.timeLeft;
+
+  G.timeLeft -= dt;
+  if (G.timeLeft <= 0) { G.timeLeft = 0; endGame(); return; }
+
+  if (G.caseSafety <= 0 || G.workerEnergy <= 0 || G.recordPressure >= 100) {
+    endGame('overload'); return;
+  }
+
+  movePlayer(dt);
   checkPickup();
   checkDelivery();
-}
+  tickStats(dt);
+  updateArrow();
 
-function loop(time) {
-  const dt = Math.min((time - lastFrame) / 1000 || 0, 0.05);
-  lastFrame = time;
-  if (state.running && !state.ended) {
-    state.timeLeft -= dt;
-    state.elapsed += dt;
-    state.spawnTimer += dt;
-    movePlayer();
-    processRest(dt);
-    maybeSpawnMerit();
-    naturalPressure(dt);
-    expireTasks();
-    refreshTaskBars();
-    if (state.spawnTimer >= phase().interval) {
-      state.spawnTimer = 0;
-      spawn(pickWeighted(phase().weights));
-    }
-    updateHud();
-    updateHand();
-    updateDebug();
-    checkWarnings();
-    checkGameOver();
-    if (state.timeLeft <= 0) endGame("time");
+  // Task spawning
+  spawnTimer += dt;
+  const { idx } = getPhase(elapsed);
+  if (spawnTimer >= spawnInterval(idx)) {
+    spawnTimer = 0;
+    if (mapTasks.length < 14) spawnTask();
   }
-  requestAnimationFrame(loop);
+
+  // Surge events
+  surgeTimer += dt;
+  if (surgeTimer >= nextSurge) {
+    surgeTimer = 0;
+    nextSurge  = rand(15, 25);
+    triggerSurge();
+  }
+
+  // Visual timers
+  if (evtTimer > 0) {
+    evtTimer -= dt;
+    if (evtTimer <= 0) document.getElementById('event-banner').classList.add('hidden');
+  }
+  if (wrongTimer > 0) {
+    wrongTimer -= dt;
+    if (wrongTimer <= 0) document.getElementById('wrong-hint').classList.add('hidden');
+  }
+
+  // Tick timers
+  if (deliverTimer > 0) deliverTimer = Math.max(0, deliverTimer - dt);
+
+  // Decay effects
+  for (let i = effects.length - 1; i >= 0; i--) {
+    effects[i].age += dt;
+    if (effects[i].age > 0.7) effects.splice(i, 1);
+  }
+
+  render(elapsed);
+  updateStatsDOM();
+
+  raf = requestAnimationFrame(gameLoop);
 }
 
-function startLevel(levelNumber = 1) {
-  currentLevelIndex = clamp(levelNumber - 1, 0, LEVELS.length - 1);
-  document.querySelector("#result-overlay").hidden = true;
-  showGameScreen();
-  resetState();
-  state.running = true;
-  ["doc", "case", "network", "crisis"].forEach(spawn);
-  updatePlayer();
-  updateHud();
-  updateHand();
-  updateDebug();
-  renderTasks();
-  renderActiveUpgrades();
-  tutorialBox.classList.remove("is-muted");
-  setTimeout(() => tutorialBox.classList.add("is-muted"), 2500);
-  toast(level().name);
+// ============================================================
+// END GAME
+// ============================================================
+function endGame(reason) {
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
+  uncompleted += mapTasks.length + heldTasks.length;
+  showResult(reason);
 }
 
+function showResult(reason) {
+  const s = G;
+  let title, text, cls;
+
+  const isOverload = reason === 'overload' || s.caseSafety <= 0 || s.workerEnergy <= 0 || s.recordPressure >= 100;
+
+  if (isOverload) {
+    title = '系統過載'; cls = 'ending-overload';
+    text  = '這不是單一社工的失敗，而是人力、資源與制度支持不足的警訊。當一個人撐起整個系統，崩潰只是時間問題。';
+  } else if (s.caseSafety >= 60 && s.workerEnergy >= 30 && s.recordPressure < 80) {
+    title = '撐住今天'; cls = 'ending-good';
+    text  = '你完成了最急迫的任務，也記得使用支持資源。但這樣的一天，不能只靠個人意志長期支撐。制度性的改變，才是真正的答案。';
+  } else {
+    title = '勉強收尾'; cls = 'ending-medium';
+    text  = '你努力排序與取捨，但仍有許多工作被迫延後。這是許多第一線社工的日常——不是能力問題，而是任務量遠超過一個人能承擔的極限。';
+  }
+
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-title').className   = 'result-title ' + cls;
+  document.getElementById('result-text').textContent  = text;
+
+  const cv = v => Math.round(v);
+  document.getElementById('result-stats').innerHTML = `
+    <div class="result-stat-grid">
+      <div class="result-stat">
+        <span class="rs-icon">✅</span>
+        <span class="rs-label">完成任務</span>
+        <span class="rs-value good">${completed}</span>
+      </div>
+      <div class="result-stat">
+        <span class="rs-icon">🕐</span>
+        <span class="rs-label">未完成任務</span>
+        <span class="rs-value ${uncompleted > 5 ? 'warn' : 'good'}">${uncompleted}</span>
+      </div>
+      <div class="result-stat">
+        <span class="rs-icon">🛡</span>
+        <span class="rs-label">個案安全</span>
+        <span class="rs-value ${s.caseSafety >= 60 ? 'good' : 'warn'}">${cv(s.caseSafety)}</span>
+      </div>
+      <div class="result-stat">
+        <span class="rs-icon">⚡</span>
+        <span class="rs-label">社工能量</span>
+        <span class="rs-value ${s.workerEnergy >= 30 ? 'good' : 'warn'}">${cv(s.workerEnergy)}</span>
+      </div>
+      <div class="result-stat">
+        <span class="rs-icon">📂</span>
+        <span class="rs-label">紀錄壓力</span>
+        <span class="rs-value ${s.recordPressure < 80 ? 'good' : 'warn'}">${cv(s.recordPressure)}</span>
+      </div>
+      <div class="result-stat">
+        <span class="rs-icon">📈</span>
+        <span class="rs-label">服務進度</span>
+        <span class="rs-value good">${cv(s.serviceProgress)}</span>
+      </div>
+    </div>
+  `;
+
+  showScreen('result');
+}
+
+// ============================================================
+// START GAME
+// ============================================================
 function startGame() {
-  startLevel(currentLevelIndex + 1);
+  G = {
+    timeLeft:        GAME_DURATION,
+    caseSafety:      70,
+    workerEnergy:    80,
+    recordPressure:  20,
+    serviceProgress: 0,
+  };
+
+  player     = { x: MAP_W / 2, y: MAP_H / 2 };
+  mapTasks   = [];
+  heldTasks  = [];
+  effects    = [];
+  taskSeq    = 0;
+  completed  = 0;
+  uncompleted = 0;
+  spawnTimer = 0;
+  surgeTimer = 0;
+  nextSurge  = rand(15, 25);
+  evtTimer     = 0;
+  wrongTimer   = 0;
+  deliverTimer = 0;
+  lastZoneId   = null;
+
+  // Reset touch/key state
+  Object.keys(keys).forEach(k => keys[k] = false);
+  Object.keys(touch).forEach(k => touch[k] = false);
+
+  // Seed initial tasks — yellow first so the tutorial arrow points at desk immediately
+  spawnTask('yellow');
+  spawnTask('blue');
+  spawnTask('purple');
+
+  showScreen('game');
+  document.getElementById('event-banner').classList.add('hidden');
+  document.getElementById('wrong-hint').classList.add('hidden');
+  updateTaskListDOM();
+
+  setupCanvas();
+  lastT = performance.now();
+  raf = requestAnimationFrame(gameLoop);
 }
 
-startButton.addEventListener("click", showRulesScreen);
-rulesFromHomeButton.addEventListener("click", showRulesScreen);
-beginLevelButton.addEventListener("click", () => startLevel(1));
-backHomeButton.addEventListener("click", showHomeScreen);
-debugToggle.addEventListener("click", () => { debugPanel.hidden = !debugPanel.hidden; });
-upgradeToggle.addEventListener("click", () => { activeUpgradesPanel.hidden = !activeUpgradesPanel.hidden; });
-helpButton.addEventListener("click", () => { toast("WASD / 方向鍵移動，Q / Tab 換目標"); });
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  // Double-rAF ensures the browser has completed layout before we measure
+  if (name === 'game') requestAnimationFrame(() => requestAnimationFrame(resizeCanvas));
+}
 
-mobileControls?.querySelectorAll("button").forEach(button => {
-  const key = button.dataset.key;
-  const press = event => {
-    event.preventDefault();
-    if (state.running) keys.add(key);
+// ============================================================
+// INPUT SETUP
+// ============================================================
+function setupInput() {
+  // Keyboard
+  const KEY_MAP = {
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    w: 'up', W: 'up', s: 'down', S: 'down', a: 'left', A: 'left', d: 'right', D: 'right'
   };
-  const release = event => {
-    event.preventDefault();
-    keys.delete(key);
-  };
-  button.addEventListener("pointerdown", press);
-  button.addEventListener("pointerup", release);
-  button.addEventListener("pointercancel", release);
-  button.addEventListener("pointerleave", release);
-});
+  window.addEventListener('keydown', e => {
+    if (KEY_MAP[e.key]) { keys[KEY_MAP[e.key]] = true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', e => {
+    if (KEY_MAP[e.key]) keys[KEY_MAP[e.key]] = false;
+  });
 
-window.addEventListener("keydown", event => {
-  if (!state.running) return;
-  if (moveKeys.has(event.key)) {
-    event.preventDefault();
-    keys.add(event.key);
+  // Mobile d-pad
+  const DPAD = [
+    ['btn-up',    'up'],
+    ['btn-down',  'down'],
+    ['btn-left',  'left'],
+    ['btn-right', 'right'],
+  ];
+  for (const [id, dir] of DPAD) {
+    const btn = document.getElementById(id);
+    const on  = e => { e.preventDefault(); touch[dir] = true;  btn.classList.add('pressed'); };
+    const off = e => { e.preventDefault(); touch[dir] = false; btn.classList.remove('pressed'); };
+    btn.addEventListener('touchstart',  on,  { passive: false });
+    btn.addEventListener('touchend',    off, { passive: false });
+    btn.addEventListener('touchcancel', off, { passive: false });
+    btn.addEventListener('mousedown', on);
+    btn.addEventListener('mouseup',   off);
+    btn.addEventListener('mouseleave',off);
   }
-  if (lockKeys.has(event.key)) {
-    event.preventDefault();
-    if (state.hand.length > 0) {
-      state.locked = (state.locked + 1) % state.hand.length;
-      highlightTarget();
-      toast("切換目標");
-    }
-    updateHand();
-  }
-});
 
-window.addEventListener("keyup", event => {
-  if (!moveKeys.has(event.key)) return;
-  event.preventDefault();
-  keys.delete(event.key);
-});
+  // Buttons
+  document.getElementById('btn-start').addEventListener('click', startGame);
+  document.getElementById('btn-restart').addEventListener('click', () => {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    startGame();
+  });
+}
 
-setupUi();
-resetState();
-renderActiveUpgrades();
-updateHud();
-updateHand();
-updateDebug();
-setScreen("home");
-requestAnimationFrame(time => {
-  lastFrame = time;
-  requestAnimationFrame(loop);
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Pre-init canvas so resize listener is added exactly once
+  canvas = document.getElementById('game-canvas');
+  ctx    = canvas.getContext('2d');
+  window.addEventListener('resize', resizeCanvas);
+
+  setupInput();
+  showScreen('menu');
 });

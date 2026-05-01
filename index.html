@@ -1,180 +1,150 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>社工的一日：一個都不漏接？</title>
-    <link rel="stylesheet" href="src/styles/main.css" />
-  </head>
-  <body>
-    <section id="screen-home" class="screen-home home-screen">
-      <div class="hero-cover">
-        <p class="eyebrow">公益倡議小遊戲</p>
-        <h1 id="game-title">《社工的一日：一個都不漏接？》</h1>
-        <figure class="hero-image-frame">
-          <img
-            src="assets/hero-social-worker-day.png"
-            alt="《社工的一日：一個都不漏接？》遊戲主視覺"
-            onerror="this.hidden=true; this.parentElement.classList.add('hero-image-missing');"
-          />
-        </figure>
-        <p class="subtitle">60 秒內，在危機、文件與自我耗竭之間撐住一天。</p>
-        <p class="intro">你不可能全部接住，只能決定先守住什麼。</p>
-        <div class="home-actions">
-          <button id="start-button" class="start-button" type="button">開始今天的挑戰</button>
-          <button id="rules-from-home-button" class="secondary-button" type="button">玩法說明</button>
-        </div>
-      </div>
-    </section>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="description" content="體驗第一線社工的一天：在 90 秒內面對危機、紀錄、會議與能量耗竭，理解過勞是制度問題而非個人失敗。">
+  <title>社工的一日：今天也要接住誰？</title>
+  <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
 
-    <section id="screen-rules" class="screen-rules" hidden>
-      <div class="rules-panel">
-        <p class="eyebrow">開始前先看 10 秒</p>
-        <h2>遊戲規則</h2>
-        <p class="rules-subtitle">你不是要完成所有事，而是要在有限時間內守住最重要的底線。</p>
+  <!-- ========== MENU SCREEN ========== -->
+  <div id="screen-menu" class="screen active">
+    <div class="menu-wrap">
+      <div class="menu-card">
+        <div class="menu-badge">倡議體驗遊戲</div>
+        <h1 class="menu-title">社工的一日</h1>
+        <h2 class="menu-subtitle">今天也要接住誰？</h2>
 
-        <div class="rules-grid">
-          <article class="rule-card">
-            <h3>你的目標</h3>
-            <p>⏱ 撐過 60 秒</p>
-            <p>✅ 達成本關 KPI</p>
-            <p>❤️ 生命值不要歸零</p>
-            <p>🔥 壓力不要爆表</p>
-            <small>第一關 KPI：完成 15 件任務。</small>
-          </article>
-
-          <article class="rule-card">
-            <h3>怎麼操作</h3>
-            <p>鍵盤：方向鍵或 WASD</p>
-            <p>手機：畫面方向鍵</p>
-            <p>碰到任務會自動接起</p>
-            <p>送到同色工作區</p>
-          </article>
-
-          <article class="rule-card">
-            <h3>看懂任務</h3>
-            <p>黃色 → 📋 辦公桌</p>
-            <p>藍色 → 🧑 個案區</p>
-            <p>紅色 → 🚨 危機區</p>
-            <p>紫色 → 🤝 會議室</p>
-            <small>倒數條越短，越快延誤。</small>
-          </article>
-
-          <article class="rule-card">
-            <h3>救命機制</h3>
-            <p>☕ 休息室：自動休息</p>
-            <p>🙏 功德無量：清空場上任務</p>
-            <p>⬆️ 升級：下一局生效</p>
-            <small>休息時時間照樣流逝。</small>
-          </article>
-
-          <article class="rule-card danger-rule">
-            <h3>小心爆表</h3>
-            <p>❤️ 歸零 → 你先倒下了</p>
-            <p>😵 100 → 個案壓力爆表</p>
-            <p>📄 100 → 文件壓力爆表</p>
-            <p>🕸️ 100 → 網絡壓力爆表</p>
-          </article>
+        <div class="menu-features">
+          <div class="feature-pill"><span class="fp-icon">⏱</span> 90 秒體驗</div>
+          <div class="feature-pill"><span class="fp-icon">🗂</span> 5 種任務類型</div>
+          <div class="feature-pill"><span class="fp-icon">💡</span> 認識制度壓力</div>
         </div>
 
-        <div class="rules-actions">
-          <button id="begin-level-button" class="start-button" type="button">我知道了，開始第一關</button>
-          <button id="back-home-button" class="secondary-button" type="button">返回首頁</button>
+        <p class="menu-tagline">在 90 秒內，體驗第一線社工如何在危機處理、行政紀錄、網絡聯繫與自身能量之間做取捨。</p>
+        <p class="menu-desc">移動角色，收集任務卡，送到正確工作區。<br>記得：督導、同事與休息，也是服務品質的一部分。</p>
+
+        <button id="btn-start" class="btn-primary">開始今天</button>
+
+        <p class="menu-footer">過勞不是個人不努力<br>而是任務量、制度要求、人力不足與資源有限共同造成的結果</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== GAME SCREEN ========== -->
+  <div id="screen-game" class="screen">
+
+    <!-- Top stats bar -->
+    <div id="stats-bar">
+      <div class="stat-group">
+        <div class="stat-item">
+          <span class="stat-icon">🛡</span>
+          <span class="stat-label">個案安全</span>
+          <div class="bar-track">
+            <div id="bar-safety" class="bar-fill bar-safety" style="width:70%"></div>
+          </div>
+          <span id="val-safety" class="stat-num">70</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-label">社工能量</span>
+          <div class="bar-track">
+            <div id="bar-energy" class="bar-fill bar-energy" style="width:80%"></div>
+          </div>
+          <span id="val-energy" class="stat-num">80</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">📂</span>
+          <span class="stat-label">紀錄壓力</span>
+          <div class="bar-track">
+            <div id="bar-pressure" class="bar-fill bar-pressure" style="width:20%"></div>
+          </div>
+          <span id="val-pressure" class="stat-num">20</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">📈</span>
+          <span class="stat-label">服務進度</span>
+          <div class="bar-track">
+            <div id="bar-progress" class="bar-fill bar-progress" style="width:0%"></div>
+          </div>
+          <span id="val-progress" class="stat-num">0</span>
         </div>
       </div>
-    </section>
-
-    <section id="screen-game" class="game-screen" hidden>
-      <header class="status-bar" aria-label="狀態列">
-        <article class="status-card status-life">
-          <div class="status-heading"><span>❤️ 生命</span><strong id="worker-life-value">100</strong></div>
-          <div class="meter"><span id="worker-life-meter" style="width: 100%"></span></div>
-        </article>
-        <article class="status-card status-case-pressure">
-          <div class="status-heading"><span>😵 個案壓力</span><strong id="case-pressure-value">20</strong></div>
-          <div class="meter"><span id="case-pressure-meter" style="width: 20%"></span></div>
-        </article>
-        <article class="status-card status-doc-pressure">
-          <div class="status-heading"><span>📄 文件壓力</span><strong id="doc-pressure-value">20</strong></div>
-          <div class="meter"><span id="doc-pressure-meter" style="width: 20%"></span></div>
-        </article>
-        <article class="status-card status-network-pressure">
-          <div class="status-heading"><span>🕸️ 網絡壓力</span><strong id="network-pressure-value">20</strong></div>
-          <div class="meter"><span id="network-pressure-meter" style="width: 20%"></span></div>
-        </article>
-      </header>
-
-      <section class="game-layout">
-        <section class="map-area" aria-label="遊戲地圖">
-          <div class="tutorial-box"><p>碰到任務卡，送到同色工作區。</p></div>
-
-          <div id="desk-zone" class="zone zone-desk" data-zone="desk">
-            <div class="zone-header">📋 辦公桌</div>
-            <div class="zone-hint">文件壓力</div>
-          </div>
-          <div id="service-zone" class="zone zone-service" data-zone="service">
-            <div class="zone-header">🧑 個案區</div>
-            <div class="zone-hint">個案壓力</div>
-          </div>
-          <div id="crisis-zone" class="zone zone-crisis" data-zone="crisis">
-            <div class="zone-header">🚨 危機區</div>
-            <div class="zone-hint">個案壓力</div>
-          </div>
-          <div id="meeting-zone" class="zone zone-meeting" data-zone="meeting">
-            <div class="zone-header">🤝 會議室</div>
-            <div class="zone-hint">網絡壓力</div>
-          </div>
-          <div id="rest-zone" class="zone zone-rest" data-zone="rest">
-            <div class="zone-header">☕ 休息室</div>
-            <div class="zone-hint">自動休息</div>
-            <div class="rest-progress"><span id="rest-progress-fill"></span></div>
-          </div>
-
-          <div class="player" aria-label="社工角色">
-            <span class="player-avatar" aria-hidden="true">🧑‍💼</span>
-            <span class="player-label">社工</span>
-          </div>
-
-          <div id="task-layer" class="task-layer" aria-label="地圖任務"></div>
-          <button id="help-button" class="help-button" type="button">？玩法</button>
-          <div id="game-message" class="game-message is-muted" aria-live="polite"></div>
-        </section>
-
-        <aside class="side-panel" aria-label="任務與目標">
-          <section class="goal-panel">
-            <h2>第一關</h2>
-            <p>⏱ 撐過 60 秒</p>
-            <p id="goal-completed">✅ 達成KPI 0 / 15</p>
-            <p id="goal-pressure">🔥 壓力別爆表</p>
-          </section>
-
-          <section class="hand-panel">
-            <h2>手上任務</h2>
-            <div id="load-summary" class="load-summary">負荷 0 / 10</div>
-            <div id="load-warning" class="load-warning" aria-live="polite"></div>
-            <div id="hand-list" class="hand-list empty">目前手上沒有任務</div>
-          </section>
-
-          <section class="upgrade-summary">
-            <button id="upgrade-toggle" class="debug-toggle" type="button">目前升級</button>
-            <div id="active-upgrades-panel" class="active-upgrades" hidden></div>
-          </section>
-
-          <button id="debug-toggle" class="debug-toggle" type="button">DEBUG</button>
-          <aside id="debug-panel" class="debug-panel" hidden></aside>
-        </aside>
-      </section>
-
-      <div id="mobile-controls" class="mobile-controls" aria-label="手機方向控制">
-        <button type="button" data-key="ArrowUp">▲</button>
-        <button type="button" data-key="ArrowLeft">◀</button>
-        <button type="button" data-key="ArrowRight">▶</button>
-        <button type="button" data-key="ArrowDown">▼</button>
+      <div class="timer-group">
+        <span id="phase-label" class="phase-label">上午</span>
+        <span id="time-remaining" class="time-display">90</span>
       </div>
-    </section>
+    </div>
 
-    <section id="screen-result" hidden></section>
+    <!-- Floating overlays -->
+    <div id="event-banner" class="event-banner hidden"></div>
+    <div id="wrong-hint" class="wrong-hint hidden">這項任務需要送到其他工作區。</div>
 
-    <script src="src/app.js"></script>
-  </body>
+    <!-- Main game area -->
+    <div id="game-main">
+      <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+      </div>
+
+      <!-- Task list sidebar -->
+      <div id="task-list">
+        <div class="tl-header">
+          <span>待辦清單</span>
+          <span id="task-count-badge" class="task-badge">0/7</span>
+        </div>
+        <div id="task-items"></div>
+        <div id="full-warning" class="full-warning hidden">待辦已滿！</div>
+      </div>
+    </div>
+
+    <!-- Mobile D-pad -->
+    <div id="mobile-controls">
+      <div class="dpad-hint">靠近任務卡<br>自動收集</div>
+      <div class="dpad">
+        <div class="dpad-row">
+          <button class="dpad-btn" id="btn-up">▲</button>
+        </div>
+        <div class="dpad-row dpad-middle">
+          <button class="dpad-btn" id="btn-left">◄</button>
+          <div class="dpad-center"></div>
+          <button class="dpad-btn" id="btn-right">►</button>
+        </div>
+        <div class="dpad-row">
+          <button class="dpad-btn" id="btn-down">▼</button>
+        </div>
+      </div>
+      <div class="dpad-hint">靠近工作區<br>自動交付</div>
+    </div>
+
+  </div>
+
+  <!-- ========== RESULT SCREEN ========== -->
+  <div id="screen-result" class="screen">
+    <div class="result-wrap">
+      <div class="result-card">
+        <div class="result-header">
+          <div class="result-label">今日工作結束</div>
+          <br>
+          <h2 id="result-title" class="result-title"></h2>
+        </div>
+
+        <div id="result-stats" class="result-stats"></div>
+        <p id="result-text" class="result-text"></p>
+
+        <p class="result-note">
+          這款遊戲設計的目的，是讓更多人了解第一線社工的日常困境。<br>
+          感謝每一位在崗位上持續付出的社工朋友。
+        </p>
+
+        <div class="result-actions">
+          <button id="btn-restart" class="btn-primary">再試一次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/app.js"></script>
+</body>
 </html>
