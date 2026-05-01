@@ -119,7 +119,7 @@ const STORAGE_KEY = "sw-day-game-upgrades-v1";
 const POWERUP_TIMES = [40, 20];
 
 const playerState = { x: 450, y: 350 };
-const touchMoveState = { active: false, pointerId: null, targetX: null, targetY: null };
+const directTouchDrag = { active: false, pointerId: null };
 const keys = new Set();
 const moveKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d", "W", "A", "S", "D"]);
 const lockKeys = new Set(["Tab", "q", "Q"]);
@@ -132,8 +132,12 @@ let activeUpgrades = loadUpgrades();
 let rules = applyUpgrades();
 const state = {};
 
+function isTouchDevice() {
+  return window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+}
+
 function isTouchLayout() {
-  return window.matchMedia("(pointer: coarse)").matches;
+  return isTouchDevice();
 }
 
 function logicalMapSize() {
@@ -884,19 +888,29 @@ function updateDebug() {
     <span>canvas: not used</span>`;
 }
 
-function setTouchTarget(event) {
+function movePlayerToPointer(event) {
   const map = logicalMapSize();
   const scaleX = map.rect.width ? map.width / map.rect.width : 1;
   const scaleY = map.rect.height ? map.height / map.rect.height : 1;
-  touchMoveState.targetX = clamp((event.clientX - map.rect.left) * scaleX, 0, map.width);
-  touchMoveState.targetY = clamp((event.clientY - map.rect.top) * scaleY, 0, map.height);
+  const logicalX = clamp((event.clientX - map.rect.left) * scaleX, 0, map.width);
+  const logicalY = clamp((event.clientY - map.rect.top) * scaleY, 0, map.height);
+  const playerWidth = player.offsetWidth || 70;
+  const playerHeight = player.offsetHeight || 72;
+  playerState.x = logicalX - playerWidth / 2;
+  playerState.y = logicalY - playerHeight / 2;
+  player.classList.add("is-moving", "direct-dragging");
+  playerAvatar.textContent = state.metrics.life < 30 ? "😵‍💫" : "🏃";
+  updatePlayer();
+  checkPickup();
+  checkDelivery();
+  processRest(0);
+  updateDebug();
 }
 
 function stopTouchMove() {
-  touchMoveState.active = false;
-  touchMoveState.pointerId = null;
-  touchMoveState.targetX = null;
-  touchMoveState.targetY = null;
+  directTouchDrag.active = false;
+  directTouchDrag.pointerId = null;
+  player.classList.remove("direct-dragging", "is-moving");
 }
 
 function movePlayer() {
@@ -907,19 +921,7 @@ function movePlayer() {
   if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) dx -= 1;
   if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) dx += 1;
 
-  if (dx === 0 && dy === 0 && touchMoveState.active) {
-    const playerWidth = player.offsetWidth || 70;
-    const playerHeight = player.offsetHeight || 72;
-    const centerX = playerState.x + playerWidth / 2;
-    const centerY = playerState.y + playerHeight / 2;
-    dx = touchMoveState.targetX - centerX;
-    dy = touchMoveState.targetY - centerY;
-    if (Math.hypot(dx, dy) < 12) {
-      stopTouchMove();
-      dx = 0;
-      dy = 0;
-    }
-  }
+  if (directTouchDrag.active && dx === 0 && dy === 0) return;
 
   if (dx === 0 && dy === 0) {
     player.classList.remove("is-moving");
@@ -927,9 +929,8 @@ function movePlayer() {
     return;
   }
   const length = Math.hypot(dx, dy) || 1;
-  const speed = touchMoveState.active ? moveSpeed() * 1.18 : moveSpeed();
-  playerState.x += (dx / length) * speed;
-  playerState.y += (dy / length) * speed;
+  playerState.x += (dx / length) * moveSpeed();
+  playerState.y += (dy / length) * moveSpeed();
   player.classList.add("is-moving");
   playerAvatar.textContent = state.metrics.life < 30 ? "😵‍💫" : "🏃";
   updatePlayer();
@@ -1013,26 +1014,28 @@ mobileControls?.querySelectorAll("button").forEach(button => {
 });
 
 mapArea.addEventListener("pointerdown", event => {
-  if (!state.running || !isTouchLayout()) return;
+  const interactiveTarget = event.target instanceof Element && event.target.closest("button");
+  if (!state.running || !isTouchDevice() || interactiveTarget) return;
   event.preventDefault();
-  touchMoveState.active = true;
-  touchMoveState.pointerId = event.pointerId;
+  directTouchDrag.active = true;
+  directTouchDrag.pointerId = event.pointerId;
   mapArea.setPointerCapture?.(event.pointerId);
-  setTouchTarget(event);
-});
+  movePlayerToPointer(event);
+}, { passive: false });
 
 mapArea.addEventListener("pointermove", event => {
-  if (!touchMoveState.active || touchMoveState.pointerId !== event.pointerId) return;
+  if (!directTouchDrag.active || directTouchDrag.pointerId !== event.pointerId) return;
   event.preventDefault();
-  setTouchTarget(event);
-});
+  movePlayerToPointer(event);
+}, { passive: false });
 
 ["pointerup", "pointercancel", "pointerleave"].forEach(type => {
   mapArea.addEventListener(type, event => {
-    if (touchMoveState.pointerId !== event.pointerId) return;
+    if (directTouchDrag.pointerId !== event.pointerId) return;
     event.preventDefault();
+    mapArea.releasePointerCapture?.(event.pointerId);
     stopTouchMove();
-  });
+  }, { passive: false });
 });
 
 window.addEventListener("keydown", event => {

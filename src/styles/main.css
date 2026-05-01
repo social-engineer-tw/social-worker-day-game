@@ -16,9 +16,14 @@
   box-sizing: border-box;
 }
 
+html {
+  overscroll-behavior: none;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
+  overscroll-behavior: none;
   color: var(--ink);
   font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
   background:
@@ -238,6 +243,9 @@ h1 {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
 .game-screen[hidden],
@@ -474,6 +482,14 @@ body.danger-edge .map-area {
     0 14px 28px rgba(36, 49, 63, 0.24);
 }
 
+.player.direct-dragging {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 10px rgba(63, 130, 212, 0.24),
+    0 18px 34px rgba(36, 49, 63, 0.32);
+  filter: brightness(1.04);
+}
+
 .player.resting::before {
   content: "休息中 ☕";
   position: absolute;
@@ -508,6 +524,9 @@ body.danger-edge .map-area {
     0 0 0 8px rgba(63, 130, 212, 0.16),
     0 14px 28px rgba(36, 49, 63, 0.24);
   z-index: 5;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
   transition: filter 120ms ease, transform 120ms ease;
 }
 
