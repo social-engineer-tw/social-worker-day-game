@@ -4,12 +4,24 @@
 
 ## 遊戲流程
 
-首頁主視覺 → 規則說明 → 第一關 → 關卡結果 / 升級 → 第二關。
+首頁主視覺 → 視覺化遊戲說明頁 → 第一關 → 關卡結果 / 升級 → 第二關。
 
 首頁主視覺圖片位置：
 
 ```text
 assets/hero-social-worker-day.png
+```
+
+遊戲說明圖片位置：
+
+```text
+assets/images/game-guide.png
+```
+
+玩家角色圖片位置：
+
+```text
+assets/images/social-worker-avatar.png
 ```
 
 部署到 GitHub Pages 時，請確認 `assets` 資料夾有一起上傳。

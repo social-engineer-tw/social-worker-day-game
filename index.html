@@ -27,59 +27,19 @@
       </div>
     </section>
 
-    <section id="screen-rules" class="screen-rules" hidden>
-      <div class="rules-panel">
-        <p class="eyebrow">開始前先看 10 秒</p>
-        <h2>遊戲規則</h2>
-        <p class="rules-subtitle">你不是要完成所有事，而是要在有限時間內守住最重要的底線。</p>
-
-        <div class="rules-grid">
-          <article class="rule-card">
-            <h3>你的目標</h3>
-            <p>⏱ 撐過 60 秒</p>
-            <p>✅ 達成本關 KPI</p>
-            <p>❤️ 生命值不要歸零</p>
-            <p>🔥 壓力不要爆表</p>
-            <small>第一關 KPI：完成 15 件任務。</small>
-          </article>
-
-          <article class="rule-card">
-            <h3>怎麼操作</h3>
-            <p>鍵盤：方向鍵或 WASD</p>
-            <p>手機：橫向後拖拉移動</p>
-            <p>碰到任務會自動接起</p>
-            <p>送到同色工作區</p>
-          </article>
-
-          <article class="rule-card">
-            <h3>看懂任務</h3>
-            <p>黃色 → 📋 辦公桌</p>
-            <p>藍色 → 🧑 個案區</p>
-            <p>紅色 → 🚨 危機區</p>
-            <p>紫色 → 🤝 會議室</p>
-            <small>倒數條越短，越快延誤。</small>
-          </article>
-
-          <article class="rule-card">
-            <h3>救命機制</h3>
-            <p>☕ 休息室：自動休息</p>
-            <p>🙏 功德無量：清空場上任務</p>
-            <p>⬆️ 升級：下一局生效</p>
-            <small>休息時時間照樣流逝。</small>
-          </article>
-
-          <article class="rule-card danger-rule">
-            <h3>小心爆表</h3>
-            <p>❤️ 歸零 → 你先倒下了</p>
-            <p>😵 100 → 個案壓力爆表</p>
-            <p>📄 100 → 文件壓力爆表</p>
-            <p>🕸️ 100 → 網絡壓力爆表</p>
-          </article>
-        </div>
-
-        <div class="rules-actions">
-          <button id="begin-level-button" class="start-button" type="button">我知道了，開始第一關</button>
-          <button id="back-home-button" class="secondary-button" type="button">返回首頁</button>
+    <section id="screen-rules" class="screen-rules guide-screen" hidden>
+      <div class="guide-panel">
+        <figure class="guide-image-wrap">
+          <img
+            class="guide-image"
+            src="assets/images/game-guide.png"
+            alt="《社工的一日：一個都不漏接？》遊戲說明"
+            onerror="this.hidden=true; this.parentElement.classList.add('guide-image-missing');"
+          />
+        </figure>
+        <div class="guide-actions">
+          <button id="begin-level-button" class="start-button guide-start-button" type="button">開始第一關</button>
+          <button id="back-home-button" class="secondary-button guide-back-button" type="button">返回首頁</button>
         </div>
       </div>
     </section>
@@ -132,7 +92,14 @@
           </div>
 
           <div class="player" aria-label="社工角色">
-            <span class="player-avatar" aria-hidden="true">🧑‍💼</span>
+            <span class="player-avatar-wrap" aria-hidden="true">
+              <img
+                class="player-avatar"
+                src="assets/images/social-worker-avatar.png"
+                alt=""
+                draggable="false"
+              />
+            </span>
             <span class="player-label">社工</span>
           </div>
 

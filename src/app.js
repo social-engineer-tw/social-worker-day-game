@@ -10,7 +10,6 @@ const statusBar = document.querySelector(".status-bar");
 const gameStage = document.querySelector("#game-stage");
 const mapArea = document.querySelector(".map-area");
 const player = document.querySelector(".player");
-const playerAvatar = document.querySelector(".player-avatar");
 const taskLayer = document.querySelector("#task-layer");
 const handList = document.querySelector("#hand-list");
 const loadSummary = document.querySelector("#load-summary");
@@ -899,7 +898,6 @@ function movePlayerToPointer(event) {
   playerState.x = logicalX - playerWidth / 2;
   playerState.y = logicalY - playerHeight / 2;
   player.classList.add("is-moving", "direct-dragging");
-  playerAvatar.textContent = state.metrics.life < 30 ? "😵‍💫" : "🏃";
   updatePlayer();
   checkPickup();
   checkDelivery();
@@ -925,14 +923,12 @@ function movePlayer() {
 
   if (dx === 0 && dy === 0) {
     player.classList.remove("is-moving");
-    playerAvatar.textContent = state.rest.active ? "😌" : state.metrics.life < 30 ? "😵‍💫" : "🧑‍💼";
     return;
   }
   const length = Math.hypot(dx, dy) || 1;
   playerState.x += (dx / length) * moveSpeed();
   playerState.y += (dy / length) * moveSpeed();
   player.classList.add("is-moving");
-  playerAvatar.textContent = state.metrics.life < 30 ? "😵‍💫" : "🏃";
   updatePlayer();
   checkPickup();
   checkDelivery();
