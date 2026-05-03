@@ -4,7 +4,7 @@
 
 ## 遊戲流程
 
-首頁主視覺 → 視覺化遊戲說明頁 → 第一關 → 關卡結果 / 升級 → 第二關。
+首頁主視覺 → 視覺化遊戲說明頁 → 第一關 → 第一關通關慶祝頁 → 第二關 → 最終破關頁。
 
 首頁主視覺圖片位置：
 
@@ -23,6 +23,26 @@ assets/images/game-guide.png
 ```text
 assets/images/social-worker-avatar.png
 ```
+
+第一關通關圖片位置：
+
+```text
+assets/images/level1-clear.png
+```
+
+第二關通關圖片位置：
+
+```text
+assets/images/level2-clear.png
+```
+
+背景音樂檔案位置：
+
+```text
+assets/audio/bgm.mp3
+```
+
+背景音樂會在玩家點擊開始遊戲流程後自動播放，遊戲不提供音樂開關按鈕。若要更換音樂，只要替換 `assets/audio/bgm.mp3`；若瀏覽器阻擋播放或檔案不存在，遊戲仍可正常遊玩。
 
 部署到 GitHub Pages 時，請確認 `assets` 資料夾有一起上傳。
 

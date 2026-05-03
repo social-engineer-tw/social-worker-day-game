@@ -21,8 +21,6 @@ const debugToggle = document.querySelector("#debug-toggle");
 const debugPanel = document.querySelector("#debug-panel");
 const restZone = document.querySelector("#rest-zone");
 const restFill = document.querySelector("#rest-progress-fill");
-const upgradeToggle = document.querySelector("#upgrade-toggle");
-const activeUpgradesPanel = document.querySelector("#active-upgrades-panel");
 const mobileControls = document.querySelector("#mobile-controls");
 const orientationOverlay = document.querySelector("#orientation-overlay");
 
@@ -73,25 +71,29 @@ const LEVELS = [
   },
 ];
 
+const bgm = new Audio("assets/audio/bgm.mp3");
+bgm.loop = true;
+bgm.volume = 0.35;
+bgm.preload = "auto";
+let bgmStarted = false;
+
+function startBgm() {
+  if (bgmStarted) return;
+  bgm.play()
+    .then(() => {
+      bgmStarted = true;
+    })
+    .catch(() => {
+      console.warn("BGM failed to play or load");
+    });
+}
+
 const TASK_TYPES = {
   doc: { emoji: "📝", titles: ["登打", "紀錄", "補件"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
   case: { emoji: "🏠", titles: ["家訪", "福利", "服務"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
   crisis: { emoji: "📞", titles: ["來電", "危機", "安全"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
   network: { emoji: "⚖️", titles: ["轉介", "協調", "醫療"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
 };
-
-const UPGRADES = [
-  { id: "life", emoji: "❤️", name: "多撐一點", text: "初始生命 +10" },
-  { id: "speed", emoji: "🏃", name: "快走步伐", text: "移動速度 +10%" },
-  { id: "stamina", emoji: "🫁", name: "省點力氣", text: "生命流失 -10%" },
-  { id: "restHeal", emoji: "☕", name: "會休息的人", text: "休息回血 +10%" },
-  { id: "restFlow", emoji: "⏳", name: "短暫喘息", text: "休息回血 +10%" },
-  { id: "docRate", emoji: "📝", name: "文書熟手", text: "文件壓力變慢" },
-  { id: "caseRate", emoji: "🧑", name: "個案敏感度", text: "個案壓力變慢" },
-  { id: "networkRate", emoji: "🤝", name: "協調老手", text: "網絡壓力變慢" },
-  { id: "load", emoji: "📦", name: "多拿一點", text: "最大負荷 +2" },
-  { id: "radar", emoji: "🔔", name: "危機雷達", text: "危機更早閃紅" },
-];
 
 const BASE_PHASES = {
   early: { interval: 2.4 },
@@ -114,7 +116,6 @@ const BASE_SPEED = 7.2;
 const BASE_REST_REGEN = 18;
 const STAGE_W = 1280;
 const STAGE_H = 720;
-const STORAGE_KEY = "sw-day-game-upgrades-v1";
 const POWERUP_TIMES = [40, 20];
 
 const playerState = { x: 450, y: 350 };
@@ -127,8 +128,7 @@ let lastFrame = 0;
 let toastTimer = null;
 let wrongHintAt = 0;
 let currentLevelIndex = 0;
-let activeUpgrades = loadUpgrades();
-let rules = applyUpgrades();
+let rules = createRules();
 const state = {};
 
 function isTouchDevice() {
@@ -179,28 +179,8 @@ function updateStageScale() {
   updatePlayer();
 }
 
-function loadUpgrades() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveUpgrades() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeUpgrades));
-  } catch {
-    // Upgrades still work in memory when storage is unavailable.
-  }
-}
-
-function upgradeLevel(id) {
-  return activeUpgrades[id] || 0;
-}
-
-function applyUpgrades() {
-  const next = {
+function createRules() {
+  return {
     initialLife: 100,
     maxLife: 100,
     speedMultiplier: 1,
@@ -212,21 +192,6 @@ function applyUpgrades() {
     maxLoad: 10,
     crisisWarnRatio: 0.28,
   };
-  Object.entries(activeUpgrades).forEach(([id, level]) => {
-    if (id === "life") {
-      next.initialLife += 10 * level;
-      next.maxLife += 10 * level;
-    }
-    if (id === "speed") next.speedMultiplier += 0.1 * level;
-    if (id === "stamina") next.lifeDrainMultiplier *= 0.9 ** level;
-    if (id === "restHeal" || id === "restFlow") next.restRegen *= 1 + 0.1 * level;
-    if (id === "docRate") next.docRateMultiplier *= 0.9 ** level;
-    if (id === "caseRate") next.caseRateMultiplier *= 0.9 ** level;
-    if (id === "networkRate") next.networkRateMultiplier *= 0.9 ** level;
-    if (id === "load") next.maxLoad += 2 * level;
-    if (id === "radar") next.crisisWarnRatio = Math.min(0.58, next.crisisWarnRatio + 0.1 * level);
-  });
-  return next;
 }
 
 function level() {
@@ -234,7 +199,7 @@ function level() {
 }
 
 function resetState() {
-  rules = applyUpgrades();
+  rules = createRules();
   Object.assign(state, {
     running: false,
     ended: false,
@@ -251,8 +216,6 @@ function resetState() {
     crisisMissed: 0,
     lastWarningAt: -10,
     rest: { active: false, noticeAt: -10 },
-    offeredUpgrades: [],
-    selectedUpgrade: null,
     resultMode: "restart",
     metrics: { life: rules.initialLife, case: 20, doc: 20, network: 20 },
     tasks: [],
@@ -283,20 +246,20 @@ function setupUi() {
     overlay.className = "result-overlay";
     overlay.hidden = true;
     overlay.innerHTML = `<article class="result-card">
+      <section class="result-hero" id="result-hero"></section>
       <section class="result-section">
         <h2 id="result-title"></h2>
         <p id="result-ending" class="result-ending"></p>
         <div id="result-stats" class="result-stats"></div>
       </section>
-      <section class="result-section">
-        <h3>選擇一個升級</h3>
-        <div id="upgrade-choices" class="upgrade-choices"></div>
-        <p id="upgrade-picked" class="upgrade-picked"></p>
-      </section>
-      <button id="restart-button" class="start-button" type="button">再撐一天</button>
+      <div class="result-actions">
+        <button id="restart-button" class="start-button" type="button">再撐一天</button>
+        <button id="result-home-button" class="secondary-button result-home-button" type="button" hidden>返回首頁</button>
+      </div>
     </article>`;
     resultScreen.append(overlay);
     document.querySelector("#restart-button").addEventListener("click", handleResultButton);
+    document.querySelector("#result-home-button").addEventListener("click", showHomeScreen);
   }
   if (!document.querySelector("#screen-flash")) {
     const flash = document.createElement("div");
@@ -305,7 +268,6 @@ function setupUi() {
     document.body.append(flash);
   }
   debugPanel.hidden = true;
-  activeUpgradesPanel.hidden = true;
 }
 
 function setScreen(screen) {
@@ -761,65 +723,54 @@ function resultText(reason) {
   return ["時間到了", "你撐到了這一輪，但 KPI 還沒完全達成。"];
 }
 
-function drawUpgrades() {
-  return [...UPGRADES]
-    .filter(upgrade => upgradeLevel(upgrade.id) < 3)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-}
-
-function renderUpgradeChoices() {
-  const box = document.querySelector("#upgrade-choices");
-  box.innerHTML = state.offeredUpgrades.map(upgrade => {
-    const levelNow = upgradeLevel(upgrade.id);
-    const selected = state.selectedUpgrade === upgrade.id ? "selected" : "";
-    return `<button class="upgrade-card ${selected}" data-upgrade="${upgrade.id}" type="button">
-      <span>${upgrade.emoji}</span>
-      <b>${upgrade.name}</b>
-      <small>${upgrade.text}</small>
-      <em>Lv.${levelNow} / 3</em>
-    </button>`;
-  }).join("");
-  box.querySelectorAll(".upgrade-card").forEach(card => {
-    card.addEventListener("click", () => chooseUpgrade(card.dataset.upgrade));
-  });
-}
-
-function chooseUpgrade(id) {
-  if (state.selectedUpgrade) return;
-  const upgrade = UPGRADES.find(item => item.id === id);
-  activeUpgrades[id] = Math.min(3, upgradeLevel(id) + 1);
-  state.selectedUpgrade = id;
-  saveUpgrades();
-  rules = applyUpgrades();
-  document.querySelector("#upgrade-picked").textContent = `已選擇升級：${upgrade.name}`;
-  renderUpgradeChoices();
-  renderActiveUpgrades();
-}
-
 function showResult(title, body, mode) {
   setScreen("result");
   state.resultMode = mode;
-  state.offeredUpgrades = drawUpgrades();
-  state.selectedUpgrade = null;
+  const isLevelClear = mode === "next";
+  const isFinalClear = mode === "final";
+  const clearImage = isLevelClear
+    ? {
+        src: "assets/images/level1-clear.png",
+        alt: "第一關通關",
+        missingClass: "level-clear-missing",
+      }
+    : isFinalClear
+      ? {
+          src: "assets/images/level2-clear.png",
+          alt: "第二關通關",
+          missingClass: "final-clear-missing",
+        }
+      : null;
+  const kpiDone = clearImage ? level().kpiTarget : state.completed;
+  const hero = document.querySelector("#result-hero");
+  const card = document.querySelector(".result-card");
+  card.classList.toggle("is-final-clear", isFinalClear);
+  hero.innerHTML = clearImage
+    ? `<figure class="level-clear-visual ${isFinalClear ? "final-clear-visual" : ""}"><img src="${clearImage.src}" alt="${clearImage.alt}" onerror="this.hidden=true; this.parentElement.classList.add('${clearImage.missingClass}');" /></figure>`
+    : "";
+  hero.hidden = !clearImage;
   document.querySelector("#result-title").textContent = title;
-  document.querySelector("#result-ending").textContent = body;
+  document.querySelector("#result-ending").textContent = isFinalClear
+    ? "你撐過今天的任務壓力，功德無量！"
+    : isLevelClear
+      ? "你暫時撐住了第一波任務壓力。"
+      : body;
+  const crisisStat = isFinalClear ? `<span>危機漏接 ${state.crisisMissed} 件</span>` : "";
   document.querySelector("#result-stats").innerHTML = `
-    <span>${level().name}</span>
-    <span>達成KPI ${state.completed} / ${level().kpiTarget}</span>
+    <span>達成 KPI ${kpiDone} / ${level().kpiTarget}</span>
     <span>生命 ${Math.round(state.metrics.life)}</span>
     <span>個案壓力 ${Math.round(state.metrics.case)}</span>
     <span>文件壓力 ${Math.round(state.metrics.doc)}</span>
-    <span>網絡壓力 ${Math.round(state.metrics.network)}</span>`;
-  document.querySelector("#upgrade-picked").textContent = "";
-  document.querySelector("#restart-button").textContent = mode === "next" ? "進入下一關" : "重新開始";
-  renderUpgradeChoices();
+    <span>網絡壓力 ${Math.round(state.metrics.network)}</span>
+    ${crisisStat}`;
+  document.querySelector("#restart-button").textContent = mode === "next" ? "進入下一關" : isFinalClear ? "再撐一天" : "重新開始";
+  document.querySelector("#result-home-button").hidden = !isFinalClear;
   setTimeout(() => { document.querySelector("#result-overlay").hidden = false; }, 260);
 }
 
 function showLevelClearScreen() {
   const hasNext = currentLevelIndex < LEVELS.length - 1;
-  showResult(level().passTitle, level().passText, hasNext ? "next" : "restart");
+  showResult(level().passTitle, level().passText, hasNext ? "next" : "final");
 }
 
 function showGameOverScreen(reason) {
@@ -860,18 +811,6 @@ function handleResultButton() {
     currentLevelIndex = 0;
     startLevel(1);
   }
-}
-
-function renderActiveUpgrades() {
-  const entries = Object.entries(activeUpgrades).filter(([id, levelNow]) => levelNow > 0 && UPGRADES.some(item => item.id === id));
-  if (entries.length === 0) {
-    activeUpgradesPanel.innerHTML = "<p>尚未取得升級</p>";
-    return;
-  }
-  activeUpgradesPanel.innerHTML = entries.map(([id, levelNow]) => {
-    const upgrade = UPGRADES.find(item => item.id === id);
-    return `<p>${upgrade.emoji} ${upgrade.name} Lv.${levelNow}</p>`;
-  }).join("");
 }
 
 function updateDebug() {
@@ -973,7 +912,6 @@ function startLevel(levelNumber = 1) {
   updateHand();
   updateDebug();
   renderTasks();
-  renderActiveUpgrades();
   tutorialBox.classList.remove("is-muted");
   setTimeout(() => tutorialBox.classList.add("is-muted"), 2500);
   toast(level().name);
@@ -983,12 +921,17 @@ function startGame() {
   startLevel(currentLevelIndex + 1);
 }
 
-startButton.addEventListener("click", showRulesScreen);
+startButton.addEventListener("click", () => {
+  startBgm();
+  showRulesScreen();
+});
 rulesFromHomeButton.addEventListener("click", showRulesScreen);
-beginLevelButton.addEventListener("click", () => startLevel(1));
+beginLevelButton.addEventListener("click", () => {
+  startBgm();
+  startLevel(1);
+});
 backHomeButton.addEventListener("click", showHomeScreen);
 debugToggle.addEventListener("click", () => { debugPanel.hidden = !debugPanel.hidden; });
-upgradeToggle.addEventListener("click", () => { activeUpgradesPanel.hidden = !activeUpgradesPanel.hidden; });
 helpButton.addEventListener("click", () => {
   toast(isTouchLayout() ? "拖拉地圖移動，看發光目標" : "WASD / 方向鍵移動，Q / Tab 換目標");
 });
@@ -1062,7 +1005,6 @@ window.addEventListener("orientationchange", updateStageScale);
 
 setupUi();
 resetState();
-renderActiveUpgrades();
 updateHud();
 updateHand();
 updateDebug();
