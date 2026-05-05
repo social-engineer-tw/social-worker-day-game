@@ -37,6 +37,7 @@ const zones = {
   crisis: document.querySelector("#crisis-zone"),
   meeting: document.querySelector("#meeting-zone"),
 };
+const zoneLayoutElements = { ...zones, rest: restZone };
 
 const LEVELS = [
   {
@@ -48,10 +49,13 @@ const LEVELS = [
     duration: 60,
     kpiTarget: 15,
     spawnSpeedMultiplier: 1,
+    enabledTaskTypes: ["doc", "case", "crisis"],
+    enabledZones: ["desk", "service", "crisis"],
+    networkPressureActive: false,
     weights: {
-      early: { doc: 32, case: 32, network: 25, crisis: 11 },
-      mid: { doc: 28, case: 20, network: 28, crisis: 24 },
-      late: { doc: 34, case: 12, network: 28, crisis: 26 },
+      early: { doc: 40, case: 40, crisis: 20 },
+      mid: { doc: 36, case: 28, crisis: 36 },
+      late: { doc: 42, case: 20, crisis: 38 },
     },
   },
   {
@@ -63,6 +67,9 @@ const LEVELS = [
     duration: 60,
     kpiTarget: 18,
     spawnSpeedMultiplier: 1.15,
+    enabledTaskTypes: ["doc", "case", "crisis", "network"],
+    enabledZones: ["desk", "service", "crisis", "meeting"],
+    networkPressureActive: true,
     weights: {
       early: { doc: 36, case: 22, network: 28, crisis: 14 },
       mid: { doc: 34, case: 16, network: 27, crisis: 23 },
@@ -89,10 +96,10 @@ function startBgm() {
 }
 
 const TASK_TYPES = {
-  doc: { emoji: "📝", titles: ["登打", "紀錄", "補件"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
-  case: { emoji: "🏠", titles: ["家訪", "福利", "服務"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
-  crisis: { emoji: "📞", titles: ["來電", "危機", "安全"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
-  network: { emoji: "⚖️", titles: ["轉介", "協調", "醫療"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
+  doc: { emojis: ["🧾", "📝", "✉️"], titles: ["核銷", "紀錄", "信件"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
+  case: { emojis: ["🏠", "🧑", "📦"], titles: ["家訪", "服務", "福利"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
+  crisis: { emojis: ["🚨", "⚠️", "🆘"], titles: ["危機", "暴力", "自殺自傷"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
+  network: { emojis: ["🤝", "🔁", "👥"], titles: ["協調", "轉介", "網絡會議"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
 };
 
 const BASE_PHASES = {
@@ -117,6 +124,23 @@ const BASE_REST_REGEN = 18;
 const STAGE_W = 1280;
 const STAGE_H = 720;
 const POWERUP_TIMES = [40, 20];
+const LEVEL_ZONE_LAYOUTS = {
+  1: {
+    source: "fixed-level-1",
+    desk: { x: 0.22, y: 0.24, w: 220, h: 128 },
+    service: { x: 0.78, y: 0.24, w: 220, h: 128 },
+    rest: { x: 0.5, y: 0.52, w: 210, h: 120 },
+    crisis: { x: 0.5, y: 0.82, w: 220, h: 128 },
+  },
+  2: {
+    source: "fixed-level-2",
+    desk: { x: 0.15, y: 0.24, w: 220, h: 134 },
+    service: { x: 0.85, y: 0.24, w: 220, h: 134 },
+    crisis: { x: 0.15, y: 0.78, w: 220, h: 134 },
+    meeting: { x: 0.85, y: 0.78, w: 220, h: 134 },
+    rest: { x: 0.5, y: 0.82, w: 190, h: 122 },
+  },
+};
 
 const playerState = { x: 450, y: 350 };
 const directTouchDrag = { active: false, pointerId: null };
@@ -176,6 +200,7 @@ function updateStageScale() {
   } else {
     gameStage.style.removeProperty("--stage-scale");
   }
+  applyZoneLayoutForCurrentLevel();
   updatePlayer();
 }
 
@@ -217,7 +242,7 @@ function resetState() {
     lastWarningAt: -10,
     rest: { active: false, noticeAt: -10 },
     resultMode: "restart",
-    metrics: { life: rules.initialLife, case: 20, doc: 20, network: 20 },
+    metrics: { life: rules.initialLife, case: 20, doc: 20, network: level().networkPressureActive ? 20 : 0 },
     tasks: [],
     hand: [],
     powerups: [],
@@ -298,6 +323,93 @@ function showGameScreen() {
   setScreen("game");
 }
 
+function applyLevelVisibility() {
+  const enabledZones = new Set(level().enabledZones || Object.keys(zones));
+  document.body.classList.toggle("level-1", level().id === 1);
+  document.body.classList.toggle("level-2", level().id === 2);
+  document.body.classList.toggle("level-network-locked", !level().networkPressureActive);
+  Object.entries(zones).forEach(([key, zone]) => {
+    zone.hidden = !enabledZones.has(key);
+    if (zone.hidden) zone.classList.remove("target");
+  });
+  applyZoneLayoutForCurrentLevel();
+}
+
+function applyZoneLayoutForCurrentLevel() {
+  const layout = LEVEL_ZONE_LAYOUTS[level().id];
+  Object.entries(zoneLayoutElements).forEach(([key, zone]) => {
+    zone.style.removeProperty("left");
+    zone.style.removeProperty("right");
+    zone.style.removeProperty("top");
+    zone.style.removeProperty("bottom");
+    zone.style.removeProperty("transform");
+    zone.style.removeProperty("width");
+    zone.style.removeProperty("height");
+    zone.style.removeProperty("min-height");
+    if (!layout || !layout[key]) return;
+    zone.style.left = `${layout[key].x * 100}%`;
+    zone.style.top = `${layout[key].y * 100}%`;
+    zone.style.width = `${layout[key].w}px`;
+    zone.style.height = `${layout[key].h}px`;
+    zone.style.minHeight = `${layout[key].h}px`;
+    zone.style.transform = "translate(-50%, -50%)";
+  });
+  if (layout) validateZoneLayout(level().id);
+  if (layout) {
+    state.zoneLayoutDebug = {
+      source: layout.source,
+      crisis: layout.crisis ? `${Math.round(layout.crisis.x * 100)}%, ${Math.round(layout.crisis.y * 100)}% ${layout.crisis.w}x${layout.crisis.h}` : "hidden",
+      rest: layout.rest ? `${Math.round(layout.rest.x * 100)}%, ${Math.round(layout.rest.y * 100)}% ${layout.rest.w}x${layout.rest.h}` : "hidden",
+    };
+  } else {
+    state.zoneLayoutDebug = {
+      source: `css-level-${level().id}`,
+      crisis: "css",
+      rest: "css",
+    };
+  }
+}
+
+function validateZoneLayout(levelId) {
+  const layout = LEVEL_ZONE_LAYOUTS[levelId];
+  if (!layout) return;
+  const enabledZones = new Set(level().enabledZones || Object.keys(zones));
+  const entries = Object.entries(layout).filter(([key]) => key !== "source" && (key === "rest" || enabledZones.has(key)));
+  entries.forEach(([key, item]) => {
+    if (![item.x, item.y, item.w, item.h].every(Number.isFinite)) {
+      console.warn(`Invalid zone layout: ${key} missing x/y/w/h`);
+    }
+    if (item.w > 260 || item.h > 170 || item.w < 160 || item.h < 90) {
+      console.warn(`Invalid zone layout: ${key} size too large or too small`);
+    }
+  });
+  if (levelId === 1 && layout.meeting) console.warn("Invalid zone layout: first level should not include meeting zone");
+  const map = logicalMapSize();
+  const mapWidth = map.width || 1000;
+  const mapHeight = map.height || 650;
+  const boxes = entries.map(([key, item]) => ({
+    key,
+    left: item.x - item.w / 2 / mapWidth,
+    right: item.x + item.w / 2 / mapWidth,
+    top: item.y - item.h / 2 / mapHeight,
+    bottom: item.y + item.h / 2 / mapHeight,
+  }));
+  for (let i = 0; i < boxes.length; i += 1) {
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      if (rectsOverlap(boxes[i], boxes[j])) {
+        console.warn(`Invalid zone layout: ${boxes[i].key} overlaps ${boxes[j].key}`);
+      }
+    }
+  }
+}
+
+function lockLevelMetrics() {
+  if (!level().networkPressureActive) {
+    state.metrics.network = 0;
+    state.networkTimer = 0;
+  }
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -316,8 +428,17 @@ function phase() {
   const key = phaseKey();
   return {
     interval: BASE_PHASES[key].interval / level().spawnSpeedMultiplier,
-    weights: level().weights[key],
+    weights: enabledWeights(level().weights[key]),
   };
+}
+
+function enabledTaskTypes() {
+  return level().enabledTaskTypes || Object.keys(TASK_TYPES);
+}
+
+function enabledWeights(weights) {
+  const allowed = new Set(enabledTaskTypes());
+  return Object.fromEntries(Object.entries(weights).filter(([type, weight]) => allowed.has(type) && weight > 0));
 }
 
 function moveSpeed() {
@@ -330,6 +451,7 @@ function moveSpeed() {
 
 function pickWeighted(weights) {
   const entries = Object.entries(weights);
+  if (entries.length === 0) return enabledTaskTypes()[0];
   const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
   let roll = Math.random() * total;
   for (const [key, weight] of entries) {
@@ -344,12 +466,16 @@ function rectsOverlap(a, b) {
 }
 
 function restSpawnBlocker() {
-  const mapRect = logicalMapSize();
-  const width = 250;
-  const height = 160;
-  const left = Math.max(0, (mapRect.width - width) / 2);
-  const top = Math.max(0, mapRect.height - height - 18);
-  return { left, right: left + width, top, bottom: top + height };
+  if (!restZone.hidden) {
+    const box = elementBoxInMap(restZone);
+    return {
+      left: box.left - 24,
+      right: box.right + 24,
+      top: box.top - 24,
+      bottom: box.bottom + 24,
+    };
+  }
+  return { left: -1, right: -1, top: -1, bottom: -1 };
 }
 
 function safePoint(point, ignoreOccupancy = false) {
@@ -359,7 +485,7 @@ function safePoint(point, ignoreOccupancy = false) {
   const playerBox = { left: playerState.x - 28, right: playerState.x + 118, top: playerState.y - 28, bottom: playerState.y + 92 };
   if (rectsOverlap(box, playerBox)) return false;
   if (rectsOverlap(box, restSpawnBlocker())) return false;
-  const blockers = Object.values(zones);
+  const blockers = Object.values(zones).filter(zone => !zone.hidden);
   const awayFromZones = blockers.every(zone => {
     return !rectsOverlap(box, elementBoxInMap(zone));
   });
@@ -379,12 +505,13 @@ function fallbackPoint() {
 
 function makeTask(type, spawn) {
   const cfg = TASK_TYPES[type];
+  const titleIndex = Math.floor(Math.random() * cfg.titles.length);
   return {
     id: `task-${state.nextId++}`,
     kind: "task",
     type,
-    emoji: cfg.emoji,
-    title: cfg.titles[Math.floor(Math.random() * cfg.titles.length)],
+    emoji: cfg.emojis[titleIndex],
+    title: cfg.titles[titleIndex],
     color: cfg.color,
     target: cfg.target,
     weight: cfg.weight,
@@ -397,6 +524,7 @@ function makeTask(type, spawn) {
 }
 
 function spawn(type) {
+  if (!enabledTaskTypes().includes(type)) return false;
   if (state.tasks.length >= MAX_MAP_TASKS) return false;
   const point = availablePoint();
   if (!point) return false;
@@ -443,6 +571,7 @@ function overlapElement(a, b, pad = 12) {
 }
 
 function updateHud() {
+  lockLevelMetrics();
   Object.entries(state.metrics).forEach(([key, value]) => {
     const max = key === "life" ? rules.maxLife : 100;
     const capped = clamp(value, 0, max);
@@ -453,7 +582,8 @@ function updateHud() {
     meters[key].card.classList.toggle("danger", danger);
     meters[key].card.classList.toggle("critical", key !== "life" && capped >= 90);
   });
-  document.body.classList.toggle("danger-edge", state.metrics.life < 30 || state.metrics.case >= 90 || state.metrics.doc >= 90 || state.metrics.network >= 90);
+  const networkDanger = level().networkPressureActive && state.metrics.network >= 90;
+  document.body.classList.toggle("danger-edge", state.metrics.life < 30 || state.metrics.case >= 90 || state.metrics.doc >= 90 || networkDanger);
   player.classList.toggle("tired", state.metrics.life < 30);
   document.querySelector("#time-left-value").textContent = Math.max(0, Math.ceil(state.timeLeft));
   document.querySelector("#time-meter").style.width = `${(state.timeLeft / level().duration) * 100}%`;
@@ -486,7 +616,8 @@ function highlightTarget() {
   Object.values(zones).forEach(zone => zone.classList.remove("target"));
   if (state.hand.length === 0) return;
   state.locked = clamp(state.locked, 0, state.hand.length - 1);
-  zones[state.hand[state.locked].target]?.classList.add("target");
+  const targetZone = zones[state.hand[state.locked].target];
+  if (targetZone && !targetZone.hidden) targetZone.classList.add("target");
 }
 
 function renderTasks() {
@@ -565,6 +696,7 @@ function applyEffects(effects, opts = {}) {
     if (key === "crisisMiss") state.crisisMissed += value;
     else state.metrics[key] = clamp(state.metrics[key] + value, 0, key === "life" ? rules.maxLife : 100);
   });
+  lockLevelMetrics();
   updateHud();
   if (!opts.skipEnd) checkGameOver();
 }
@@ -624,6 +756,7 @@ function checkPickup() {
 
 function checkDelivery() {
   Object.entries(zones).forEach(([key, zone]) => {
+    if (zone.hidden) return;
     if (!overlapElement(player, zone, 2)) return;
     const hadTask = state.hand.length > 0;
     const delivered = deliver(key);
@@ -686,20 +819,21 @@ function naturalPressure(dt) {
     state.docTimer = 0;
     state.metrics.doc += 4;
   }
-  if (state.networkTimer >= 6 / rules.networkRateMultiplier) {
+  if (level().networkPressureActive && state.networkTimer >= 6 / rules.networkRateMultiplier) {
     state.networkTimer = 0;
     state.metrics.network += 3;
   }
+  lockLevelMetrics();
   updateHud();
 }
 
 function checkWarnings() {
   if (state.elapsed - state.lastWarningAt <= 3.2) return;
   if (state.metrics.life < 30) toastAndMark("你快撐不住了");
-  else if (state.metrics.case >= 90 || state.metrics.doc >= 90 || state.metrics.network >= 90) toastAndMark("再不處理就會爆表");
+  else if (state.metrics.case >= 90 || state.metrics.doc >= 90 || (level().networkPressureActive && state.metrics.network >= 90)) toastAndMark("再不處理就會爆表");
   else if (state.metrics.case >= 75) toastAndMark("個案壓力快爆了");
   else if (state.metrics.doc >= 75) toastAndMark("文件壓力快爆了");
-  else if (state.metrics.network >= 75) toastAndMark("網絡壓力快爆了");
+  else if (level().networkPressureActive && state.metrics.network >= 75) toastAndMark("網絡壓力快爆了");
 }
 
 function toastAndMark(text) {
@@ -712,13 +846,13 @@ function checkGameOver() {
   if (state.metrics.life <= 0) endGame("life");
   else if (state.metrics.case >= 100) endGame("case");
   else if (state.metrics.doc >= 100) endGame("doc");
-  else if (state.metrics.network >= 100) endGame("network");
+  else if (level().networkPressureActive && state.metrics.network >= 100) endGame("network");
 }
 
 function resultText(reason) {
   if (reason === "life") return ["你先倒下了", "你接了太多，最後先倒下的是工作者自己。"];
   if (reason === "case") return ["個案壓力爆表", "太多個案端壓力沒被即時處理，安全線失守了。"];
-  if (reason === "doc") return ["文件壓力爆表", "紀錄、登打與補件把一天淹沒了。"];
+  if (reason === "doc") return ["文件壓力爆表", "核銷、紀錄與信件把一天淹沒了。"];
   if (reason === "network") return ["網絡壓力爆表", "協調與轉介沒有接上，網絡壓力失控了。"];
   return ["時間到了", "你撐到了這一輪，但 KPI 還沒完全達成。"];
 }
@@ -814,9 +948,13 @@ function handleResultButton() {
 }
 
 function updateDebug() {
+  const layoutDebug = state.zoneLayoutDebug || { source: "n/a", crisis: "n/a", rest: "n/a" };
   debugPanel.innerHTML = `<strong>DEBUG</strong>
     <span>phase: v4.5 levels</span>
     <span>level: ${level().id}</span>
+    <span>layout: ${layoutDebug.source}</span>
+    <span>crisis: ${layoutDebug.crisis}</span>
+    <span>rest: ${layoutDebug.rest}</span>
     <span>timeLeft: ${Math.ceil(state.timeLeft)}</span>
     <span>spawn interval: ${phase().interval.toFixed(2)}s</span>
     <span>load: ${currentLoad()} / ${rules.maxLoad}</span>
@@ -905,8 +1043,9 @@ function startLevel(levelNumber = 1) {
   document.querySelector("#result-overlay").hidden = true;
   showGameScreen();
   resetState();
+  applyLevelVisibility();
   state.running = true;
-  ["doc", "case", "network", "crisis"].forEach(spawn);
+  enabledTaskTypes().forEach(spawn);
   updatePlayer();
   updateHud();
   updateHand();
@@ -914,7 +1053,7 @@ function startLevel(levelNumber = 1) {
   renderTasks();
   tutorialBox.classList.remove("is-muted");
   setTimeout(() => tutorialBox.classList.add("is-muted"), 2500);
-  toast(level().name);
+  toast(level().networkPressureActive ? "第二關開始：網絡壓力加入，紫色任務送會議室" : level().name);
 }
 
 function startGame() {

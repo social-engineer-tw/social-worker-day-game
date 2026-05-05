@@ -445,6 +445,7 @@ body.danger-edge .map-area {
 
 .zone {
   position: absolute;
+  box-sizing: border-box;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -458,6 +459,10 @@ body.danger-edge .map-area {
     inset 0 -12px 0 rgba(36, 49, 63, 0.04),
     0 16px 26px rgba(36, 49, 63, 0.12);
   z-index: 1;
+}
+
+.zone[hidden] {
+  display: none;
 }
 
 .zone-header {
@@ -504,6 +509,26 @@ body.danger-edge .map-area {
   border-color: rgba(143, 104, 207, 0.78);
 }
 
+body.level-1 .zone-desk {
+  border-color: rgba(242, 201, 76, 0.82);
+}
+
+body.level-1 .zone-service {
+  border-color: rgba(63, 130, 212, 0.74);
+}
+
+body.level-1 .zone-crisis {
+  border-color: rgba(227, 95, 85, 0.86);
+}
+
+body.level-1 .zone-rest {
+  border-color: rgba(79, 157, 105, 0.9);
+}
+
+body.level-network-locked .status-network-pressure {
+  opacity: 0.58;
+}
+
 .zone-rest {
   left: 50%;
   bottom: 34px;
@@ -517,7 +542,7 @@ body.danger-edge .map-area {
     inset 0 -12px 0 rgba(79, 157, 105, 0.08),
     0 16px 28px rgba(36, 49, 63, 0.12),
     0 0 0 7px rgba(79, 157, 105, 0.12);
-  z-index: 3;
+  z-index: 1;
 }
 
 .zone-rest.resting {
@@ -1157,8 +1182,8 @@ body.danger-edge .map-area {
 }
 
 @keyframes targetGlow {
-  from { box-shadow: 0 0 0 5px rgba(63, 130, 212, 0.22), 0 16px 26px rgba(36, 49, 63, 0.12); transform: scale(1); }
-  to { box-shadow: 0 0 0 16px rgba(63, 130, 212, 0.36), 0 16px 26px rgba(36, 49, 63, 0.12); transform: scale(1.025); }
+  from { box-shadow: 0 0 0 5px rgba(63, 130, 212, 0.22), 0 16px 26px rgba(36, 49, 63, 0.12); filter: brightness(1); }
+  to { box-shadow: 0 0 0 16px rgba(63, 130, 212, 0.36), 0 16px 26px rgba(36, 49, 63, 0.12); filter: brightness(1.04); }
 }
 
 @keyframes restGlow {
