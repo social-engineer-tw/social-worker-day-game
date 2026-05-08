@@ -76,7 +76,58 @@ const LEVELS = [
       late: { doc: 38, case: 10, network: 26, crisis: 26 },
     },
   },
+  {
+    id: 3,
+    label: "第三關",
+    name: "第三關：體制追上來了",
+    passTitle: "第三關通過",
+    passText: "你在體制壓力下，仍撐過了今天。",
+    duration: 60,
+    kpiTarget: 20,
+    spawnSpeedMultiplier: 1.28,
+    enabledTaskTypes: ["doc", "case", "crisis", "network"],
+    enabledZones: ["desk", "service", "crisis", "meeting"],
+    networkPressureActive: true,
+    hasSystemMonster: true,
+    weights: {
+      early: { doc: 34, case: 20, network: 28, crisis: 18 },
+      mid: { doc: 36, case: 14, network: 28, crisis: 22 },
+      late: { doc: 38, case: 10, network: 26, crisis: 26 },
+    },
+  },
 ];
+
+const LEVEL_CLEAR_CONFIG = {
+  1: {
+    title: "第一關通過",
+    image: "assets/images/level_1_clear_mission_accomplished.png",
+    fallbackImage: "assets/images/level1-clear.png",
+    alt: "第一關通關慶祝圖",
+    message: "你暫時撐住了第一波任務壓力。",
+    primaryLabel: "進入第二關",
+    nextLevelId: 2,
+    final: false,
+  },
+  2: {
+    title: "第二關通過",
+    image: "assets/images/level_2_achievement_celebration_scene.png",
+    fallbackImage: "assets/images/level2-clear.png",
+    alt: "第二關通關慶祝圖",
+    message: "事情開始追上來，但你仍然守住了節奏。",
+    primaryLabel: "進入第三關",
+    nextLevelId: 3,
+    final: false,
+  },
+  3: {
+    title: "第三關通過",
+    image: "assets/images/level_cleared_celebration_in_the_office.png",
+    fallbackImage: "assets/images/level3-clear.png",
+    alt: "第三關通關慶祝圖",
+    message: "你撐過今天的任務壓力，功德無量！",
+    primaryLabel: "重新開始",
+    final: true,
+  },
+};
 
 const bgm = new Audio("assets/audio/bgm.mp3");
 bgm.loop = true;
@@ -124,6 +175,12 @@ const BASE_REST_REGEN = 18;
 const STAGE_W = 1280;
 const STAGE_H = 720;
 const POWERUP_TIMES = [40, 20];
+const SYSTEM_MONSTER_DAMAGE = 25;
+const SYSTEM_MONSTER_COOLDOWN = 1.5;
+const SYSTEM_MONSTER_IMAGE = "assets/images/system-monster.png";
+const SYSTEM_MONSTER_SIZE = 156;
+const SYSTEM_MONSTER_SPEED = 144;
+const SYSTEM_MONSTER_COLLISION_PAD = -12;
 const LEVEL_ZONE_LAYOUTS = {
   1: {
     source: "fixed-level-1",
@@ -134,6 +191,14 @@ const LEVEL_ZONE_LAYOUTS = {
   },
   2: {
     source: "fixed-level-2",
+    desk: { x: 0.15, y: 0.24, w: 220, h: 134 },
+    service: { x: 0.85, y: 0.24, w: 220, h: 134 },
+    crisis: { x: 0.15, y: 0.78, w: 220, h: 134 },
+    meeting: { x: 0.85, y: 0.78, w: 220, h: 134 },
+    rest: { x: 0.5, y: 0.82, w: 190, h: 122 },
+  },
+  3: {
+    source: "fixed-level-3",
     desk: { x: 0.15, y: 0.24, w: 220, h: 134 },
     service: { x: 0.85, y: 0.24, w: 220, h: 134 },
     crisis: { x: 0.15, y: 0.78, w: 220, h: 134 },
@@ -153,6 +218,7 @@ let toastTimer = null;
 let wrongHintAt = 0;
 let currentLevelIndex = 0;
 let rules = createRules();
+let systemMonsterEl = null;
 const state = {};
 
 function isTouchDevice() {
@@ -242,11 +308,23 @@ function resetState() {
     lastWarningAt: -10,
     rest: { active: false, noticeAt: -10 },
     resultMode: "restart",
+    failedLevelId: null,
     metrics: { life: rules.initialLife, case: 20, doc: 20, network: level().networkPressureActive ? 20 : 0 },
     tasks: [],
     hand: [],
     powerups: [],
     meritSpawned: {},
+    systemMonster: {
+      active: false,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      speed: SYSTEM_MONSTER_SPEED,
+      size: SYSTEM_MONSTER_SIZE,
+      turnAt: 0,
+      hitCooldownUntil: -10,
+    },
   });
   POWERUP_TIMES.forEach(time => { state.meritSpawned[time] = false; });
   playerState.x = 450;
@@ -254,7 +332,8 @@ function resetState() {
   keys.clear();
   restFill.style.width = "0%";
   restZone.classList.remove("resting");
-  player.classList.remove("resting");
+  player.classList.remove("resting", "system-hit");
+  if (systemMonsterEl) systemMonsterEl.hidden = true;
 }
 
 function setupUi() {
@@ -278,7 +357,7 @@ function setupUi() {
         <div id="result-stats" class="result-stats"></div>
       </section>
       <div class="result-actions">
-        <button id="restart-button" class="start-button" type="button">再撐一天</button>
+        <button id="restart-button" class="start-button" type="button">重新開始</button>
         <button id="result-home-button" class="secondary-button result-home-button" type="button" hidden>返回首頁</button>
       </div>
     </article>`;
@@ -291,6 +370,20 @@ function setupUi() {
     flash.id = "screen-flash";
     flash.className = "screen-flash";
     document.body.append(flash);
+  }
+  if (!document.querySelector("#system-monster")) {
+    systemMonsterEl = document.createElement("div");
+    systemMonsterEl.id = "system-monster";
+    systemMonsterEl.className = "system-monster";
+    systemMonsterEl.hidden = true;
+    systemMonsterEl.innerHTML = `<span class="system-monster-icon">
+        <img alt="" onerror="this.hidden=true; this.nextElementSibling.hidden=false;" />
+        <span hidden>⛓️</span>
+      </span>
+      <b>體制</b>`;
+    mapArea.append(systemMonsterEl);
+  } else {
+    systemMonsterEl = document.querySelector("#system-monster");
   }
   debugPanel.hidden = true;
 }
@@ -564,6 +657,82 @@ function updatePlayer() {
   player.style.top = `${playerState.y}px`;
 }
 
+function chooseMonsterDirection() {
+  const angle = Math.random() * Math.PI * 2;
+  state.systemMonster.vx = Math.cos(angle);
+  state.systemMonster.vy = Math.sin(angle);
+  state.systemMonster.turnAt = state.elapsed + 2.1 + Math.random() * 2.2;
+}
+
+function setupSystemMonster() {
+  if (!systemMonsterEl) return;
+  if (!level().hasSystemMonster) {
+    state.systemMonster.active = false;
+    systemMonsterEl.hidden = true;
+    return;
+  }
+  const map = logicalMapSize();
+  const size = state.systemMonster.size;
+  const img = systemMonsterEl.querySelector("img");
+  const fallback = systemMonsterEl.querySelector(".system-monster-icon span");
+  if (img && !img.getAttribute("src")) {
+    img.hidden = false;
+    if (fallback) fallback.hidden = true;
+    img.src = SYSTEM_MONSTER_IMAGE;
+  }
+  state.systemMonster.active = true;
+  state.systemMonster.size = SYSTEM_MONSTER_SIZE;
+  state.systemMonster.speed = SYSTEM_MONSTER_SPEED;
+  systemMonsterEl.style.setProperty("--system-monster-size", `${SYSTEM_MONSTER_SIZE}px`);
+  state.systemMonster.x = clamp(map.width * 0.68, 0, Math.max(0, map.width - size));
+  state.systemMonster.y = clamp(map.height * 0.42, 0, Math.max(0, map.height - size));
+  state.systemMonster.hitCooldownUntil = -10;
+  chooseMonsterDirection();
+  systemMonsterEl.hidden = false;
+  updateSystemMonsterElement();
+}
+
+function updateSystemMonsterElement() {
+  if (!systemMonsterEl || !state.systemMonster.active) return;
+  systemMonsterEl.style.left = `${state.systemMonster.x}px`;
+  systemMonsterEl.style.top = `${state.systemMonster.y}px`;
+}
+
+function updateSystemMonster(dt) {
+  if (!systemMonsterEl || !state.systemMonster.active || state.ended) return;
+  const monster = state.systemMonster;
+  const map = logicalMapSize();
+  const maxX = Math.max(0, map.width - monster.size);
+  const maxY = Math.max(0, map.height - monster.size);
+  monster.x += monster.vx * monster.speed * dt;
+  monster.y += monster.vy * monster.speed * dt;
+  if (monster.x <= 0 || monster.x >= maxX) {
+    monster.x = clamp(monster.x, 0, maxX);
+    monster.vx *= -1;
+  }
+  if (monster.y <= 0 || monster.y >= maxY) {
+    monster.y = clamp(monster.y, 0, maxY);
+    monster.vy *= -1;
+  }
+  if (state.elapsed >= monster.turnAt) chooseMonsterDirection();
+  updateSystemMonsterElement();
+  checkSystemMonsterCollision();
+}
+
+function checkSystemMonsterCollision() {
+  if (!systemMonsterEl || !state.systemMonster.active || systemMonsterEl.hidden) return;
+  if (state.elapsed < state.systemMonster.hitCooldownUntil) return;
+  if (!overlapElement(player, systemMonsterEl, SYSTEM_MONSTER_COLLISION_PAD)) return;
+  state.systemMonster.hitCooldownUntil = state.elapsed + SYSTEM_MONSTER_COOLDOWN;
+  state.metrics.life = clamp(state.metrics.life - SYSTEM_MONSTER_DAMAGE, 0, rules.maxLife);
+  toast("被體制壓到，生命值 -25");
+  flash();
+  player.classList.add("system-hit");
+  setTimeout(() => player.classList.remove("system-hit"), 520);
+  updateHud();
+  if (state.metrics.life <= 0) endGame("system");
+}
+
 function overlapElement(a, b, pad = 12) {
   const ar = a.getBoundingClientRect();
   const br = b.getBoundingClientRect();
@@ -589,6 +758,7 @@ function updateHud() {
   document.querySelector("#time-meter").style.width = `${(state.timeLeft / level().duration) * 100}%`;
   document.querySelector(".goal-panel h2").textContent = level().label;
   document.querySelector("#goal-completed").textContent = `✅ 達成KPI ${state.completed} / ${level().kpiTarget}`;
+  document.querySelector("#goal-pressure").textContent = level().hasSystemMonster ? "⛓️ 小心體制" : "🔥 壓力別爆表";
 }
 
 function updateHand() {
@@ -854,41 +1024,48 @@ function resultText(reason) {
   if (reason === "case") return ["個案壓力爆表", "太多個案端壓力沒被即時處理，安全線失守了。"];
   if (reason === "doc") return ["文件壓力爆表", "核銷、紀錄與信件把一天淹沒了。"];
   if (reason === "network") return ["網絡壓力爆表", "協調與轉介沒有接上，網絡壓力失控了。"];
+  if (reason === "system") return ["你被體制壓垮了", "不是你不夠努力，而是體制壓力已經超過一個人能承受的範圍。"];
   return ["時間到了", "你撐到了這一輪，但 KPI 還沒完全達成。"];
+}
+
+function renderClearHero(hero, config, isFinalClear) {
+  hero.innerHTML = "";
+  hero.hidden = !config;
+  if (!config) return;
+
+  const figure = document.createElement("figure");
+  figure.className = `level-clear-visual ${isFinalClear ? "final-clear-visual" : ""}`;
+  const image = document.createElement("img");
+  image.src = config.image;
+  image.alt = config.alt;
+  image.dataset.fallbackSrc = config.fallbackImage || "";
+  image.addEventListener("error", () => {
+    const fallback = image.dataset.fallbackSrc;
+    if (fallback && !image.dataset.usedFallback) {
+      image.dataset.usedFallback = "true";
+      image.src = fallback;
+      return;
+    }
+    image.hidden = true;
+    figure.classList.add("is-missing");
+    figure.dataset.missing = config.image;
+  });
+  figure.append(image);
+  hero.append(figure);
 }
 
 function showResult(title, body, mode) {
   setScreen("result");
   state.resultMode = mode;
-  const isLevelClear = mode === "next";
-  const isFinalClear = mode === "final";
-  const clearImage = isLevelClear
-    ? {
-        src: "assets/images/level1-clear.png",
-        alt: "第一關通關",
-        missingClass: "level-clear-missing",
-      }
-    : isFinalClear
-      ? {
-          src: "assets/images/level2-clear.png",
-          alt: "第二關通關",
-          missingClass: "final-clear-missing",
-        }
-      : null;
-  const kpiDone = clearImage ? level().kpiTarget : state.completed;
+  const clearConfig = (mode === "next" || mode === "final") ? LEVEL_CLEAR_CONFIG[level().id] : null;
+  const isFinalClear = Boolean(clearConfig?.final);
+  const kpiDone = clearConfig ? level().kpiTarget : state.completed;
   const hero = document.querySelector("#result-hero");
   const card = document.querySelector(".result-card");
   card.classList.toggle("is-final-clear", isFinalClear);
-  hero.innerHTML = clearImage
-    ? `<figure class="level-clear-visual ${isFinalClear ? "final-clear-visual" : ""}"><img src="${clearImage.src}" alt="${clearImage.alt}" onerror="this.hidden=true; this.parentElement.classList.add('${clearImage.missingClass}');" /></figure>`
-    : "";
-  hero.hidden = !clearImage;
-  document.querySelector("#result-title").textContent = title;
-  document.querySelector("#result-ending").textContent = isFinalClear
-    ? "你撐過今天的任務壓力，功德無量！"
-    : isLevelClear
-      ? "你暫時撐住了第一波任務壓力。"
-      : body;
+  renderClearHero(hero, clearConfig, isFinalClear);
+  document.querySelector("#result-title").textContent = clearConfig?.title || title;
+  document.querySelector("#result-ending").textContent = clearConfig?.message || body;
   const crisisStat = isFinalClear ? `<span>危機漏接 ${state.crisisMissed} 件</span>` : "";
   document.querySelector("#result-stats").innerHTML = `
     <span>達成 KPI ${kpiDone} / ${level().kpiTarget}</span>
@@ -897,8 +1074,9 @@ function showResult(title, body, mode) {
     <span>文件壓力 ${Math.round(state.metrics.doc)}</span>
     <span>網絡壓力 ${Math.round(state.metrics.network)}</span>
     ${crisisStat}`;
-  document.querySelector("#restart-button").textContent = mode === "next" ? "進入下一關" : isFinalClear ? "再撐一天" : "重新開始";
-  document.querySelector("#result-home-button").hidden = !isFinalClear;
+  document.querySelector("#restart-button").textContent = clearConfig?.primaryLabel || "重新挑戰本關";
+  document.querySelector("#result-home-button").textContent = isFinalClear ? "回到首頁" : "返回首頁";
+  document.querySelector("#result-home-button").hidden = !(isFinalClear || mode === "restart");
   setTimeout(() => { document.querySelector("#result-overlay").hidden = false; }, 260);
 }
 
@@ -914,13 +1092,16 @@ function showGameOverScreen(reason) {
 
 function endGame(reason = "time") {
   if (state.ended) return;
+  state.failedLevelId = level().id;
   state.running = false;
   state.ended = true;
   keys.clear();
   state.rest.active = false;
+  state.systemMonster.active = false;
   restZone.classList.remove("resting");
   player.classList.remove("resting");
   restFill.style.width = "0%";
+  if (systemMonsterEl) systemMonsterEl.hidden = true;
   if (reason !== "time") flash();
   showGameOverScreen(reason);
 }
@@ -931,16 +1112,20 @@ function passLevel() {
   state.ended = true;
   keys.clear();
   state.rest.active = false;
+  state.systemMonster.active = false;
   restZone.classList.remove("resting");
   player.classList.remove("resting");
   restFill.style.width = "0%";
+  if (systemMonsterEl) systemMonsterEl.hidden = true;
   showLevelClearScreen();
 }
 
 function handleResultButton() {
   if (state.resultMode === "next") {
-    currentLevelIndex = Math.min(currentLevelIndex + 1, LEVELS.length - 1);
-    startLevel(currentLevelIndex + 1);
+    const nextLevelId = LEVEL_CLEAR_CONFIG[level().id]?.nextLevelId || Math.min(level().id + 1, LEVELS.length);
+    startLevel(nextLevelId);
+  } else if (state.resultMode === "restart") {
+    startLevel(state.failedLevelId || level().id);
   } else {
     currentLevelIndex = 0;
     startLevel(1);
@@ -960,6 +1145,7 @@ function updateDebug() {
     <span>load: ${currentLoad()} / ${rules.maxLoad}</span>
     <span>tasks on map: ${state.tasks.length}</span>
     <span>powerups: ${state.powerups.length}</span>
+    <span>system monster: ${state.systemMonster.active ? "active" : "off"}</span>
     <span>completed: ${state.completed}</span>
     <span>canvas: not used</span>`;
 }
@@ -979,6 +1165,7 @@ function movePlayerToPointer(event) {
   checkPickup();
   checkDelivery();
   processRest(0);
+  checkSystemMonsterCollision();
   updateDebug();
 }
 
@@ -1020,6 +1207,7 @@ function loop(time) {
     state.spawnTimer += dt;
     movePlayer();
     processRest(dt);
+    updateSystemMonster(dt);
     maybeSpawnMerit();
     naturalPressure(dt);
     expireTasks();
@@ -1047,6 +1235,7 @@ function startLevel(levelNumber = 1) {
   state.running = true;
   enabledTaskTypes().forEach(spawn);
   updatePlayer();
+  setupSystemMonster();
   updateHud();
   updateHand();
   updateDebug();

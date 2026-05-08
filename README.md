@@ -27,13 +27,18 @@ assets/images/social-worker-avatar.png
 第一關通關圖片位置：
 
 ```text
-assets/images/level1-clear.png
+assets/images/level_1_clear_mission_accomplished.png
 ```
 
 第二關通關圖片位置：
 
 ```text
-assets/images/level2-clear.png
+assets/images/level_2_achievement_celebration_scene.png
+```
+
+蝚砌?????雿蔭嚗?
+```text
+assets/images/level_cleared_celebration_in_the_office.png
 ```
 
 背景音樂檔案位置：

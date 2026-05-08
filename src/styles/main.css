@@ -630,6 +630,13 @@ body.level-network-locked .status-network-pressure {
   animation: tiredBlink 0.9s ease-in-out infinite alternate;
 }
 
+.player.system-hit {
+  box-shadow:
+    0 0 0 10px rgba(227, 95, 85, 0.28),
+    0 16px 30px rgba(227, 95, 85, 0.32);
+  filter: sepia(0.35) saturate(1.35);
+}
+
 .player-avatar-wrap {
   width: 70px;
   height: 82px;
@@ -758,6 +765,58 @@ body.level-network-locked .status-network-pressure {
 
 .task-card.collected {
   animation: cardCollect 180ms ease-in forwards;
+}
+
+.system-monster {
+  position: absolute;
+  width: var(--system-monster-size, 156px);
+  height: var(--system-monster-size, 156px);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  border: 4px solid rgba(146, 40, 43, 0.78);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.22), transparent 48%),
+    linear-gradient(160deg, rgba(69, 76, 88, 0.92), rgba(29, 35, 44, 0.88));
+  color: #fff;
+  box-shadow:
+    0 0 0 10px rgba(194, 66, 69, 0.16),
+    0 0 26px rgba(194, 66, 69, 0.28),
+    0 20px 38px rgba(18, 25, 32, 0.3);
+  z-index: 4;
+  pointer-events: none;
+  animation: monsterDrift 0.7s ease-in-out infinite alternate;
+}
+
+.system-monster[hidden] {
+  display: none;
+}
+
+.system-monster-icon {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 104px;
+  font-size: 4.3rem;
+  line-height: 1;
+}
+
+.system-monster-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.system-monster b {
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 0;
+  padding: 3px 10px 5px;
+  border-radius: 999px;
+  background: rgba(17, 24, 34, 0.55);
 }
 
 .powerup-merit {
@@ -1017,8 +1076,8 @@ body.level-network-locked .status-network-pressure {
   max-height: 50vh;
 }
 
-.level-clear-visual.level-clear-missing::after {
-  content: "請放入 assets/images/level1-clear.png";
+.level-clear-visual.is-missing::after {
+  content: "請放入 " attr(data-missing);
   display: grid;
   place-items: center;
   width: 100%;
@@ -1029,10 +1088,6 @@ body.level-network-locked .status-network-pressure {
   background: #fff;
   font-weight: 900;
   box-shadow: 0 18px 45px rgba(20, 40, 60, 0.12);
-}
-
-.level-clear-visual.final-clear-missing::after {
-  content: "請放入 assets/images/level2-clear.png";
 }
 
 .result-card h2 {
@@ -1236,6 +1291,11 @@ body.level-network-locked .status-network-pressure {
 @keyframes meritPulse {
   from { transform: translateY(0) scale(1); filter: brightness(1); }
   to { transform: translateY(-4px) scale(1.04); filter: brightness(1.08); }
+}
+
+@keyframes monsterDrift {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.08); }
 }
 
 @keyframes floatUp {
