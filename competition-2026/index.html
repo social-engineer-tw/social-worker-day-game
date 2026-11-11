@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="在移動、接取與交付任務的遊戲循環中，體驗社工如何做專業判斷、啟動團隊支援，並面對有限時間與制度資源。"
+    />
+    <title>社工的一日：當所有事情都很重要</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="src/styles/main.css" />
+  </head>
+  <body>
+    <section id="screen-home" class="screen-home home-screen">
+      <div class="hero-cover">
+        <p class="eyebrow">互動公共教育遊戲・2026 競賽版</p>
+        <h1 id="game-title">《社工的一日：當所有事情都很重要》</h1>
+        <figure class="hero-image-frame">
+          <img
+            src="assets/hero-social-worker-day.png"
+            alt="《社工的一日：當所有事情都很重要》遊戲主視覺"
+            onerror="this.hidden=true; this.parentElement.classList.add('hero-image-missing');"
+          />
+        </figure>
+        <p class="subtitle">在任務、專業判斷與有限支援之間，安排一個不可能全部同時完成的工作日。</p>
+        <p class="home-version-note">保留移動接件玩法，新增會改變後續狀態的決策、團隊支援與教育性歷程結算。</p>
+        <div class="home-actions">
+          <button id="start-button" class="start-button" type="button">開始今天的挑戰</button>
+          <button id="rules-from-home-button" class="secondary-button" type="button">玩法說明</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-rules" class="screen-rules guide-screen" hidden>
+      <div class="guide-panel">
+        <figure class="guide-image-wrap">
+          <img
+            class="guide-image"
+            src="assets/images/game-guide.png"
+            alt="《社工的一日》原有移動與任務交付玩法說明"
+            onerror="this.hidden=true; this.parentElement.classList.add('guide-image-missing');"
+          />
+        </figure>
+        <section class="competition-guide" aria-label="競賽版新增玩法">
+          <h2>競賽版新增玩法</h2>
+          <div class="competition-guide-grid">
+            <p><strong>1. 移動與交付</strong><span>碰到任務卡後，送往同色工作區；同時留意工作者狀態與各類負荷。</span></p>
+            <p><strong>2. 專業決策</strong><span>情境出現時遊戲會暫停。選項各有取捨，會改變任務與後續狀態。</span></p>
+            <p><strong>3. 團隊支援</strong><span>右側可啟動督導、同事、外部網絡或重新排程；每關資源有限，部分支援會延遲到位。</span></p>
+          </div>
+          <p class="guide-ethics">所有人物與情境皆為虛構；本遊戲呈現的是工作安排與制度條件，不以單一分數判定社工是否專業。</p>
+        </section>
+        <div class="guide-actions">
+          <button id="begin-level-button" class="start-button guide-start-button" type="button">開始第一關</button>
+          <button id="back-home-button" class="secondary-button guide-back-button" type="button">返回首頁</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-game" class="game-screen" hidden>
+      <div id="game-stage" class="game-stage">
+      <header class="status-bar" aria-label="狀態列">
+        <article class="status-card status-life">
+          <div class="status-heading"><span>❤️ 工作者狀態</span><strong id="worker-life-value">100</strong></div>
+          <div class="meter"><span id="worker-life-meter" style="width: 100%"></span></div>
+        </article>
+        <article class="status-card status-case-pressure">
+          <div class="status-heading"><span>🛡️ 服務風險</span><strong id="case-pressure-value">20</strong></div>
+          <div class="meter"><span id="case-pressure-meter" style="width: 20%"></span></div>
+        </article>
+        <article class="status-card status-doc-pressure">
+          <div class="status-heading"><span>📄 行政負荷</span><strong id="doc-pressure-value">20</strong></div>
+          <div class="meter"><span id="doc-pressure-meter" style="width: 20%"></span></div>
+        </article>
+        <article class="status-card status-network-pressure">
+          <div class="status-heading"><span>🕸️ 協作負荷</span><strong id="network-pressure-value">20</strong></div>
+          <div class="meter"><span id="network-pressure-meter" style="width: 20%"></span></div>
+        </article>
+      </header>
+
+      <section class="game-layout">
+        <section class="map-area" aria-label="遊戲地圖">
+          <div class="tutorial-box"><p>碰到任務卡，送到同色工作區。</p></div>
+
+          <div id="desk-zone" class="zone zone-desk" data-zone="desk">
+            <div class="zone-header">📋 辦公桌</div>
+            <div class="zone-hint">文件壓力</div>
+          </div>
+          <div id="service-zone" class="zone zone-service" data-zone="service">
+            <div class="zone-header">🧑 個案區</div>
+            <div class="zone-hint">個案壓力</div>
+          </div>
+          <div id="crisis-zone" class="zone zone-crisis" data-zone="crisis">
+            <div class="zone-header">🚨 危機區</div>
+            <div class="zone-hint">個案壓力</div>
+          </div>
+          <div id="meeting-zone" class="zone zone-meeting" data-zone="meeting">
+            <div class="zone-header">🤝 會議室</div>
+            <div class="zone-hint">網絡壓力</div>
+          </div>
+          <div id="rest-zone" class="zone zone-rest" data-zone="rest">
+            <div class="zone-header">☕ 休息室</div>
+            <div class="zone-hint">自動休息</div>
+            <div class="rest-progress"><span id="rest-progress-fill"></span></div>
+          </div>
+
+          <div class="player" aria-label="社工角色">
+            <span class="player-avatar-wrap" aria-hidden="true">
+              <img
+                class="player-avatar"
+                src="assets/images/social-worker-avatar.png"
+                alt=""
+                draggable="false"
+              />
+            </span>
+            <span class="player-label">社工</span>
+          </div>
+
+          <div id="task-layer" class="task-layer" aria-label="地圖任務"></div>
+          <button id="help-button" class="help-button" type="button">？玩法</button>
+          <div id="game-message" class="game-message is-muted" aria-live="polite"></div>
+        </section>
+
+        <aside class="side-panel" aria-label="任務與目標">
+          <section class="goal-panel">
+            <h2>第一關</h2>
+            <p>⏱ 撐過 60 秒</p>
+            <p id="goal-completed">✅ 達成KPI 0 / 15</p>
+            <p id="goal-pressure">🔥 壓力別爆表</p>
+          </section>
+
+          <section class="hand-panel">
+            <h2>手上任務</h2>
+            <div id="load-summary" class="load-summary">負荷 0 / 10</div>
+            <div id="load-warning" class="load-warning" aria-live="polite"></div>
+            <div id="hand-list" class="hand-list empty">目前手上沒有任務</div>
+          </section>
+
+          <section class="support-panel" aria-labelledby="support-title">
+            <div class="support-heading">
+              <h2 id="support-title">團隊與制度資源</h2>
+              <span id="support-capacity" class="support-capacity">可用 0</span>
+            </div>
+            <p id="support-status" class="support-status" aria-live="polite">每關支援量有限，部分回應需要等待。</p>
+            <div id="support-actions" class="support-actions"></div>
+          </section>
+
+          <button id="debug-toggle" class="debug-toggle" type="button">DEBUG</button>
+          <aside id="debug-panel" class="debug-panel" hidden></aside>
+        </aside>
+      </section>
+
+      </div>
+
+      <section id="decision-dialog" class="decision-dialog" role="dialog" aria-modal="true" aria-labelledby="decision-title" hidden>
+        <article class="decision-card">
+          <p class="decision-kicker">專業判斷事件・遊戲已暫停</p>
+          <h2 id="decision-title"></h2>
+          <p id="decision-context" class="decision-context"></p>
+          <p id="decision-note" class="decision-note"></p>
+          <div id="decision-choices" class="decision-choices"></div>
+        </article>
+      </section>
+
+      <div id="mobile-controls" class="mobile-controls" aria-label="手機方向控制">
+        <button type="button" data-key="ArrowUp">▲</button>
+        <button type="button" data-key="ArrowLeft">◀</button>
+        <button type="button" data-key="ArrowRight">▶</button>
+        <button type="button" data-key="ArrowDown">▼</button>
+      </div>
+    </section>
+
+    <section id="screen-result" hidden></section>
+
+    <section id="orientation-overlay" class="orientation-overlay" aria-live="polite">
+      <div class="orientation-card">
+        <div class="orientation-icon" aria-hidden="true">📱↔️</div>
+        <h2>請將手機轉為橫向</h2>
+        <p>橫向畫面會比較適合遊玩</p>
+      </div>
+    </section>
+
+    <script src="src/competition-core.js"></script>
+    <script src="src/app.js"></script>
+  </body>
+</html>
