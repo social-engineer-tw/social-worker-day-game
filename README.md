@@ -40,7 +40,7 @@ node --test tests\game-core.test.js
 node tests\browser-e2e.js
 ```
 
-第一組為 8 項核心邏輯測試。第二組會啟動獨立的無頭 Chrome，驗證 19 個操作與狀態，並輸出桌機、決策、結算與觸控橫向畫面至 `test-results/`。
+第一組為 8 項核心邏輯測試。第二組會啟動獨立的無頭 Chrome，驗證 22 個操作與狀態，並輸出桌機、決策、結算、觸控直向提示與橫向遊戲畫面至 `test-results/`。
 
 ## 專案結構
 

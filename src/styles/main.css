@@ -1704,9 +1704,29 @@ body.level-network-locked .status-network-pressure {
 }
 
 @media (max-width: 767px) {
+  .hero-cover {
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+    min-width: 0;
+  }
+
   #game-title {
+    width: 100%;
+    max-width: 100%;
     white-space: normal;
-    font-size: clamp(2rem, 9vw, 3rem);
+    overflow-wrap: anywhere;
+    font-size: clamp(1.55rem, 7vw, 1.9rem);
+  }
+
+  #game-title span {
+    display: block;
+  }
+
+  .subtitle,
+  .home-version-note {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 }
 

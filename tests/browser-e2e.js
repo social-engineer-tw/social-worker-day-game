@@ -209,6 +209,32 @@ async function run() {
     await waitFor(cdp, "level().id === 1 && state.running && !state.ended");
 
     await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+      screenWidth: 390,
+      screenHeight: 844,
+    });
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await cdp.send("Page.reload", { ignoreCache: true });
+    await waitFor(cdp, "document.readyState === 'complete'");
+    const portraitLayout = await evaluate(cdp, `(() => {
+      const title = document.querySelector('#game-title').getBoundingClientRect();
+      const subtitle = document.querySelector('.subtitle').getBoundingClientRect();
+      return {
+        viewport: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        title: { left: title.left, right: title.right },
+        subtitle: { left: subtitle.left, right: subtitle.right },
+      };
+    })()`);
+    assert.ok(portraitLayout.scrollWidth <= portraitLayout.viewport, "portrait home must not scroll horizontally");
+    assert.ok(portraitLayout.title.left >= 0 && portraitLayout.title.right <= portraitLayout.viewport, "portrait title must fit viewport");
+    assert.ok(portraitLayout.subtitle.left >= 0 && portraitLayout.subtitle.right <= portraitLayout.viewport, "portrait subtitle must fit viewport");
+    await screenshot(cdp, "mobile-portrait-home.png");
+
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
       width: 844,
       height: 390,
       deviceScaleFactor: 1,
@@ -236,10 +262,10 @@ async function run() {
 
     const report = {
       title: "Chrome browser E2E",
-      passed: 19,
+      passed: 22,
       failed: 0,
-      viewportChecks: ["1440x1000 desktop", "844x390 touch landscape"],
-      screenshots: ["desktop-decision.png", "desktop-final-result.png", "mobile-landscape-game.png"],
+      viewportChecks: ["1440x1000 desktop", "390x844 touch portrait", "844x390 touch landscape"],
+      screenshots: ["desktop-decision.png", "desktop-final-result.png", "mobile-portrait-home.png", "mobile-landscape-game.png"],
     };
     console.log(JSON.stringify(report, null, 2));
   } finally {
