@@ -23,6 +23,24 @@ const restZone = document.querySelector("#rest-zone");
 const restFill = document.querySelector("#rest-progress-fill");
 const mobileControls = document.querySelector("#mobile-controls");
 const orientationOverlay = document.querySelector("#orientation-overlay");
+const supportActions = document.querySelector("#support-actions");
+const supportCapacity = document.querySelector("#support-capacity");
+const supportStatus = document.querySelector("#support-status");
+const decisionDialog = document.querySelector("#decision-dialog");
+const decisionTitle = document.querySelector("#decision-title");
+const decisionContext = document.querySelector("#decision-context");
+const decisionNote = document.querySelector("#decision-note");
+const decisionChoices = document.querySelector("#decision-choices");
+
+if (!window.CompetitionCore) throw new Error("CompetitionCore failed to load");
+const {
+  SUPPORTS,
+  applyMetricEffects,
+  decisionFor,
+  educationFeedback,
+  taskCategoryCounts,
+  validateConfiguration,
+} = window.CompetitionCore;
 
 const meters = {
   life: { value: document.querySelector("#worker-life-value"), meter: document.querySelector("#worker-life-meter"), card: document.querySelector(".status-life") },
@@ -100,8 +118,8 @@ const LEVELS = [
 const LEVEL_CLEAR_CONFIG = {
   1: {
     title: "第一關通過",
-    image: "assets/images/level_1_clear_mission_accomplished.png",
-    fallbackImage: "assets/images/level1-clear.png",
+    image: "assets/images/level1-clear.png",
+    fallbackImage: "",
     alt: "第一關通關慶祝圖",
     message: "你暫時撐住了第一波任務壓力。",
     primaryLabel: "進入第二關",
@@ -110,8 +128,8 @@ const LEVEL_CLEAR_CONFIG = {
   },
   2: {
     title: "第二關通過",
-    image: "assets/images/level_2_achievement_celebration_scene.png",
-    fallbackImage: "assets/images/level2-clear.png",
+    image: "assets/images/level2-clear.png",
+    fallbackImage: "",
     alt: "第二關通關慶祝圖",
     message: "事情開始追上來，但你仍然守住了節奏。",
     primaryLabel: "進入第三關",
@@ -123,7 +141,7 @@ const LEVEL_CLEAR_CONFIG = {
     image: "assets/images/level_cleared_celebration_in_the_office.png",
     fallbackImage: "assets/images/level3-clear.png",
     alt: "第三關通關慶祝圖",
-    message: "你撐過今天的任務壓力，功德無量！",
+    message: "你完成了三段工作歷程；結算將呈現已完成、仍待處理與制度條件。",
     primaryLabel: "重新開始",
     final: true,
   },
@@ -147,10 +165,10 @@ function startBgm() {
 }
 
 const TASK_TYPES = {
-  doc: { emojis: ["🧾", "📝", "✉️"], titles: ["核銷", "紀錄", "信件"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
-  case: { emojis: ["🏠", "🧑", "📦"], titles: ["家訪", "服務", "福利"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
-  crisis: { emojis: ["🚨", "⚠️", "🆘"], titles: ["危機", "暴力", "自殺自傷"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
-  network: { emojis: ["🤝", "🔁", "👥"], titles: ["協調", "轉介", "網絡會議"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
+  doc: { emojis: ["🧾", "📝", "✉️"], titles: ["核銷", "服務紀錄", "期限回覆"], color: "yellow", target: "desk", weight: 1, deadline: 13, complete: { doc: -18, life: -2 }, expire: { doc: 24 } },
+  case: { emojis: ["🏠", "🧑", "📦"], titles: ["訪視安排", "需求確認", "資源申請"], color: "blue", target: "service", weight: 2, deadline: 13, complete: { case: -14, network: -2, life: -2 }, expire: { case: 20 } },
+  crisis: { emojis: ["🚨", "⚠️", "🆘"], titles: ["安全確認", "緊急協調", "急迫聯繫"], color: "red", target: "crisis", weight: 4, deadline: 8.5, complete: { case: -22, life: -8 }, expire: { case: 34, life: -5, crisisMiss: 1 } },
+  network: { emojis: ["🤝", "🔁", "👥"], titles: ["跨網絡協調", "資源轉介", "合作會議"], color: "purple", target: "meeting", weight: 2, deadline: 12, complete: { network: -18, doc: 5, life: -2 }, expire: { network: 24, doc: 7 } },
 };
 
 const BASE_PHASES = {
@@ -220,6 +238,20 @@ let currentLevelIndex = 0;
 let rules = createRules();
 let systemMonsterEl = null;
 const state = {};
+let journey = createJourney();
+
+function createJourney() {
+  return {
+    attempts: 0,
+    completed: { doc: 0, case: 0, crisis: 0, network: 0 },
+    expired: 0,
+    unresolved: 0,
+    decisions: [],
+    supports: [],
+    constraints: [],
+    levelsCleared: 0,
+  };
+}
 
 function isTouchDevice() {
   return window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
@@ -303,12 +335,22 @@ function resetState() {
     nextId: 1,
     locked: 0,
     completed: 0,
+    completedByType: { doc: 0, case: 0, crisis: 0, network: 0 },
     expired: 0,
     crisisMissed: 0,
     lastWarningAt: -10,
     rest: { active: false, noticeAt: -10 },
     resultMode: "restart",
     failedLevelId: null,
+    summaryCommitted: false,
+    decisionOpen: false,
+    activeDecision: null,
+    triggeredDecisionIds: [],
+    decisionLog: [],
+    supportCapacity: level().id === 1 ? 2 : 3,
+    supportUsed: {},
+    supportLog: [],
+    pendingSupports: [],
     metrics: { life: rules.initialLife, case: 20, doc: 20, network: level().networkPressureActive ? 20 : 0 },
     tasks: [],
     hand: [],
@@ -333,6 +375,8 @@ function resetState() {
   restFill.style.width = "0%";
   restZone.classList.remove("resting");
   player.classList.remove("resting", "system-hit");
+  decisionDialog.hidden = true;
+  document.body.classList.remove("decision-open");
   if (systemMonsterEl) systemMonsterEl.hidden = true;
 }
 
@@ -355,6 +399,7 @@ function setupUi() {
         <h2 id="result-title"></h2>
         <p id="result-ending" class="result-ending"></p>
         <div id="result-stats" class="result-stats"></div>
+        <div id="result-learning" class="result-learning"></div>
       </section>
       <div class="result-actions">
         <button id="restart-button" class="start-button" type="button">重新開始</button>
@@ -365,6 +410,8 @@ function setupUi() {
     document.querySelector("#restart-button").addEventListener("click", handleResultButton);
     document.querySelector("#result-home-button").addEventListener("click", showHomeScreen);
   }
+  const configErrors = validateConfiguration();
+  if (configErrors.length) console.error("Competition configuration errors", configErrors);
   if (!document.querySelector("#screen-flash")) {
     const flash = document.createElement("div");
     flash.id = "screen-flash";
@@ -814,7 +861,7 @@ function renderTasks() {
     card.dataset.id = powerup.id;
     card.style.left = `${point.x}px`;
     card.style.top = `${point.y}px`;
-    card.innerHTML = `<span>🙏</span><b>功德無量</b>`;
+    card.innerHTML = `<span>🤝</span><b>團隊緩衝</b>`;
     taskLayer.append(card);
   });
 }
@@ -862,13 +909,222 @@ function meritFlash() {
 }
 
 function applyEffects(effects, opts = {}) {
+  const metricEffects = {};
   Object.entries(effects).forEach(([key, value]) => {
     if (key === "crisisMiss") state.crisisMissed += value;
-    else state.metrics[key] = clamp(state.metrics[key] + value, 0, key === "life" ? rules.maxLife : 100);
+    else metricEffects[key] = value;
   });
+  Object.assign(state.metrics, applyMetricEffects(state.metrics, metricEffects, rules.maxLife));
   lockLevelMetrics();
   updateHud();
   if (!opts.skipEnd) checkGameOver();
+}
+
+function renderSupportActions() {
+  if (!supportActions) return;
+  supportCapacity.textContent = `可用 ${state.supportCapacity}`;
+  const pending = state.pendingSupports.filter(item => item.status === "pending");
+  supportStatus.textContent = pending.length
+    ? `${pending.map(item => item.label).join("、")}正在聯繫中；遊戲持續進行。`
+    : "每關支援量有限，部分回應需要等待。";
+  supportActions.innerHTML = "";
+  Object.entries(SUPPORTS).forEach(([id, config]) => {
+    const button = document.createElement("button");
+    const used = Boolean(state.supportUsed[id]);
+    button.type = "button";
+    button.className = "support-button";
+    button.dataset.support = id;
+    button.disabled = used || state.supportCapacity <= 0 || !state.running || state.ended;
+    const availability = used ? "本關已使用" : config.delay ? `約 ${config.delay} 秒後回應` : "立即生效";
+    button.innerHTML = `<strong>${config.label}</strong><span>${config.description}</span><small>${availability}</small>`;
+    supportActions.append(button);
+  });
+}
+
+function recordCompletedTask(task) {
+  state.completed += 1;
+  state.completedByType[task.type] = (state.completedByType[task.type] || 0) + 1;
+}
+
+function applySupportNow(record) {
+  if (state.ended || record.status === "arrived") return;
+  const config = SUPPORTS[record.id];
+  record.status = "arrived";
+  applyEffects(config.effects, { skipEnd: true });
+
+  if (config.special === "delegate") {
+    const task = state.hand.find(item => item.type !== "crisis") || state.tasks.find(item => item.type !== "crisis");
+    if (task) {
+      state.hand = state.hand.filter(item => item.id !== task.id);
+      state.tasks = state.tasks.filter(item => item.id !== task.id);
+      recordCompletedTask(task);
+      applyEffects(task.complete, { skipEnd: true });
+      record.outcome = `同事接手並完成「${task.title}」；危機任務仍由當下安全流程處理。`;
+    } else {
+      applyEffects({ case: -3, doc: -4 }, { skipEnd: true });
+      record.outcome = "目前沒有可分工的非危機任務，同事改為協助整理待辦與紀錄。";
+    }
+  } else if (config.special === "extend-deadlines") {
+    [...state.tasks, ...state.hand].forEach(task => { task.created += 4; });
+    record.outcome = "合作單位回應，服務與協作風險下降，現有任務多了少量處理時間。";
+  } else if (config.special === "reschedule") {
+    [...state.tasks, ...state.hand].filter(task => task.type !== "crisis").forEach(task => { task.created += 6; });
+    record.outcome = "非危機工作重新排程；你爭取到時間，但行政追蹤仍需完成。";
+  } else {
+    record.outcome = "督導協助釐清優先順序，服務風險與行政負荷暫時下降。";
+  }
+
+  state.pendingSupports = state.pendingSupports.filter(item => item !== record);
+  renderTasks();
+  updateHand();
+  renderSupportActions();
+  toast(record.outcome);
+  checkGameOver();
+  if (!state.ended && state.completed >= level().kpiTarget) passLevel();
+}
+
+function useSupport(id) {
+  const config = SUPPORTS[id];
+  if (!config || !state.running || state.ended || state.decisionOpen) return;
+  if (state.supportUsed[id]) return toast("這項支援本關已使用");
+  if (state.supportCapacity <= 0) return toast("本關可用支援量已用完");
+
+  state.supportUsed[id] = true;
+  state.supportCapacity -= 1;
+  const record = {
+    id,
+    label: config.label,
+    constraint: config.constraint,
+    requestedAt: state.elapsed,
+    dueAt: state.elapsed + config.delay,
+    status: config.delay ? "pending" : "arrived",
+    outcome: "",
+  };
+  state.supportLog.push(record);
+
+  if (config.delay) {
+    state.pendingSupports.push(record);
+    toast(`${config.label}已聯繫，約 ${config.delay} 秒後回應`);
+  } else {
+    record.status = "pending";
+    applySupportNow(record);
+  }
+  renderSupportActions();
+}
+
+function processPendingSupports() {
+  state.pendingSupports.slice().forEach(record => {
+    if (state.elapsed >= record.dueAt) applySupportNow(record);
+  });
+}
+
+function openDecision(event) {
+  state.decisionOpen = true;
+  state.activeDecision = event;
+  state.triggeredDecisionIds.push(event.id);
+  keys.clear();
+  decisionTitle.textContent = event.title;
+  decisionContext.textContent = event.context;
+  decisionNote.textContent = event.note;
+  decisionChoices.innerHTML = "";
+  event.choices.forEach(choice => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "decision-choice";
+    button.dataset.choice = choice.id;
+    button.innerHTML = `<strong>${choice.label}</strong><span>${choice.rationale}</span>`;
+    decisionChoices.append(button);
+  });
+  decisionDialog.hidden = false;
+  document.body.classList.add("decision-open");
+  decisionChoices.querySelector("button")?.focus();
+}
+
+function chooseDecision(choiceId) {
+  const event = state.activeDecision;
+  const choice = event?.choices.find(item => item.id === choiceId);
+  if (!event || !choice) return;
+
+  applyEffects(choice.effects, { skipEnd: true });
+  (choice.spawn || []).forEach(type => spawn(type));
+  const record = {
+    eventId: event.id,
+    title: event.title,
+    choice: choice.label,
+    outcome: choice.outcome,
+    theme: choice.theme,
+  };
+  state.decisionLog.push(record);
+  if (choice.supportTag) {
+    state.supportLog.push({
+      id: `decision-${event.id}`,
+      label: choice.supportTag,
+      constraint: "此協作來自情境選擇，不占用右側有限支援量。",
+      status: "arrived",
+      outcome: choice.outcome,
+    });
+  }
+  state.decisionOpen = false;
+  state.activeDecision = null;
+  decisionDialog.hidden = true;
+  document.body.classList.remove("decision-open");
+  renderSupportActions();
+  toast(choice.outcome);
+  checkGameOver();
+}
+
+function checkDecisionEvent() {
+  const event = decisionFor(level().id, state.timeLeft, state.triggeredDecisionIds);
+  if (!event) return false;
+  openDecision(event);
+  return true;
+}
+
+function commitLevelSummary(cleared) {
+  if (state.summaryCommitted) return;
+  state.summaryCommitted = true;
+  journey.attempts += 1;
+  Object.entries(state.completedByType).forEach(([type, count]) => {
+    journey.completed[type] = (journey.completed[type] || 0) + count;
+  });
+  journey.expired += state.expired;
+  journey.unresolved += state.tasks.length + state.hand.length + state.pendingSupports.length;
+  journey.decisions.push(...state.decisionLog.map(item => ({ ...item, level: level().label })));
+  journey.supports.push(...state.supportLog.map(item => ({ ...item, level: level().label })));
+  if (cleared) journey.levelsCleared = Math.max(journey.levelsCleared, level().id);
+  if (state.expired > 0) journey.constraints.push("任務量與期限同時增加，造成部分工作延誤");
+  if (state.pendingSupports.length > 0) journey.constraints.push("支援回應需要時間，關卡結束時仍有協作尚未到位");
+  if (level().hasSystemMonster) journey.constraints.push("制度性要求持續消耗工作者狀態");
+  if (state.metrics.doc >= 75) journey.constraints.push("行政期限與服務工作競爭有限時間");
+}
+
+function categorySummary() {
+  const labels = { doc: "行政紀錄", case: "需求服務", crisis: "安全確認", network: "網絡協作" };
+  return Object.entries(labels).map(([type, label]) => `${label} ${journey.completed[type] || 0}`).join("・");
+}
+
+function renderLearningResult() {
+  const container = document.querySelector("#result-learning");
+  const recentDecisions = journey.decisions.slice(-3);
+  const recentSupports = journey.supports.slice(-4);
+  const uniqueConstraints = [...new Set(journey.constraints)].slice(0, 4);
+  const feedback = educationFeedback(journey);
+  const decisionItems = recentDecisions.length
+    ? recentDecisions.map(item => `<li><strong>${item.choice}</strong><span>${item.outcome}</span><small>${item.theme}</small></li>`).join("")
+    : "<li><span>本段尚未觸發專業判斷事件。</span></li>";
+  const supportItems = recentSupports.length
+    ? recentSupports.map(item => `<li><strong>${item.label}</strong><span>${item.status === "pending" ? "關卡結束時仍在等待回應" : item.outcome || "已啟動"}</span></li>`).join("")
+    : "<li><span>本次尚未使用團隊支援；可在重玩時嘗試不同資源配置。</span></li>";
+  const constraintItems = uniqueConstraints.length
+    ? uniqueConstraints.map(item => `<li>${item}</li>`).join("")
+    : "<li>本段未記錄明顯制度限制，但真實工作仍受人力、權責與資源可近性影響。</li>";
+
+  container.innerHTML = `
+    <section><h3>本次服務歷程</h3><p>${categorySummary()}</p><p>仍未處理或等待中：${journey.unresolved} 項</p></section>
+    <section><h3>重要決策</h3><ul>${decisionItems}</ul></section>
+    <section><h3>團隊與制度資源</h3><ul>${supportItems}</ul></section>
+    <section><h3>制度條件</h3><ul>${constraintItems}</ul></section>
+    <aside class="education-feedback"><strong>教育回饋</strong><p>${feedback}</p><small>此結果描述工作歷程，不以單一分數判定社工是否專業或稱職。</small></aside>`;
 }
 
 function pickup(task) {
@@ -889,10 +1145,11 @@ function pickup(task) {
 }
 
 function pickupMerit(powerup) {
-  state.tasks = [];
   state.powerups = state.powerups.filter(item => item.id !== powerup.id);
-  toast("🙏 功德無量！場上任務清空");
-  floatText("功德無量");
+  [...state.tasks, ...state.hand].forEach(task => { task.created += 5; });
+  applyEffects({ life: 6 }, { skipEnd: true });
+  toast("🤝 團隊緩衝：任務仍在，但多了處理時間");
+  floatText("團隊緩衝");
   meritFlash();
   renderTasks();
 }
@@ -902,7 +1159,7 @@ function deliver(zoneKey) {
   if (done.length === 0) return false;
   state.hand = state.hand.filter(task => task.target !== zoneKey);
   done.forEach(task => {
-    state.completed += 1;
+    recordCompletedTask(task);
     applyEffects(task.complete);
   });
   state.locked = 0;
@@ -1020,12 +1277,12 @@ function checkGameOver() {
 }
 
 function resultText(reason) {
-  if (reason === "life") return ["你先倒下了", "你接了太多，最後先倒下的是工作者自己。"];
-  if (reason === "case") return ["個案壓力爆表", "太多個案端壓力沒被即時處理，安全線失守了。"];
-  if (reason === "doc") return ["文件壓力爆表", "核銷、紀錄與信件把一天淹沒了。"];
-  if (reason === "network") return ["網絡壓力爆表", "協調與轉介沒有接上，網絡壓力失控了。"];
-  if (reason === "system") return ["你被體制壓垮了", "不是你不夠努力，而是體制壓力已經超過一個人能承受的範圍。"];
-  return ["時間到了", "你撐到了這一輪，但 KPI 還沒完全達成。"];
+  if (reason === "life") return ["工作者狀態已耗盡", "目前的任務量與支持條件超過個人可持續承擔的範圍。"];
+  if (reason === "case") return ["服務風險需要團隊接手", "多項需求同時累積；安全與服務延續應回到組織共同承擔。"];
+  if (reason === "doc") return ["行政負荷已超出容量", "期限與紀錄占滿可用時間，需要調整工作量或制度安排。"];
+  if (reason === "network") return ["協作負荷已超出容量", "跨單位回應與權責協調需要更多時間與組織支持。"];
+  if (reason === "system") return ["制度負荷超出個人容量", "這不是不夠努力，而是制度壓力已超過一個人能承受的範圍。"];
+  return ["本段時間結束", "部分工作尚未完成；結算會呈現已處理需求、重要決策與制度限制。"];
 }
 
 function renderClearHero(hero, config, isFinalClear) {
@@ -1066,14 +1323,15 @@ function showResult(title, body, mode) {
   renderClearHero(hero, clearConfig, isFinalClear);
   document.querySelector("#result-title").textContent = clearConfig?.title || title;
   document.querySelector("#result-ending").textContent = clearConfig?.message || body;
-  const crisisStat = isFinalClear ? `<span>危機漏接 ${state.crisisMissed} 件</span>` : "";
+  const crisisStat = `<span>安全任務延誤 ${state.crisisMissed} 件</span>`;
   document.querySelector("#result-stats").innerHTML = `
     <span>達成 KPI ${kpiDone} / ${level().kpiTarget}</span>
-    <span>生命 ${Math.round(state.metrics.life)}</span>
-    <span>個案壓力 ${Math.round(state.metrics.case)}</span>
-    <span>文件壓力 ${Math.round(state.metrics.doc)}</span>
-    <span>網絡壓力 ${Math.round(state.metrics.network)}</span>
+    <span>工作者狀態 ${Math.round(state.metrics.life)}</span>
+    <span>服務風險 ${Math.round(state.metrics.case)}</span>
+    <span>行政負荷 ${Math.round(state.metrics.doc)}</span>
+    <span>協作負荷 ${Math.round(state.metrics.network)}</span>
     ${crisisStat}`;
+  renderLearningResult();
   document.querySelector("#restart-button").textContent = clearConfig?.primaryLabel || "重新挑戰本關";
   document.querySelector("#result-home-button").textContent = isFinalClear ? "回到首頁" : "返回首頁";
   document.querySelector("#result-home-button").hidden = !(isFinalClear || mode === "restart");
@@ -1103,6 +1361,7 @@ function endGame(reason = "time") {
   restFill.style.width = "0%";
   if (systemMonsterEl) systemMonsterEl.hidden = true;
   if (reason !== "time") flash();
+  commitLevelSummary(false);
   showGameOverScreen(reason);
 }
 
@@ -1117,6 +1376,7 @@ function passLevel() {
   player.classList.remove("resting");
   restFill.style.width = "0%";
   if (systemMonsterEl) systemMonsterEl.hidden = true;
+  commitLevelSummary(true);
   showLevelClearScreen();
 }
 
@@ -1127,6 +1387,7 @@ function handleResultButton() {
   } else if (state.resultMode === "restart") {
     startLevel(state.failedLevelId || level().id);
   } else {
+    journey = createJourney();
     currentLevelIndex = 0;
     startLevel(1);
   }
@@ -1201,27 +1462,31 @@ function movePlayer() {
 function loop(time) {
   const dt = Math.min((time - lastFrame) / 1000 || 0, 0.05);
   lastFrame = time;
-  if (state.running && !state.ended) {
+  if (state.running && !state.ended && !state.decisionOpen) {
     state.timeLeft -= dt;
     state.elapsed += dt;
     state.spawnTimer += dt;
-    movePlayer();
-    processRest(dt);
-    updateSystemMonster(dt);
-    maybeSpawnMerit();
-    naturalPressure(dt);
-    expireTasks();
-    refreshTaskBars();
-    if (state.spawnTimer >= phase().interval) {
-      state.spawnTimer = 0;
-      spawn(pickWeighted(phase().weights));
+    const openedDecision = checkDecisionEvent();
+    if (!openedDecision) {
+      movePlayer();
+      processRest(dt);
+      updateSystemMonster(dt);
+      maybeSpawnMerit();
+      processPendingSupports();
+      naturalPressure(dt);
+      expireTasks();
+      refreshTaskBars();
+      if (state.spawnTimer >= phase().interval) {
+        state.spawnTimer = 0;
+        spawn(pickWeighted(phase().weights));
+      }
+      updateHud();
+      updateHand();
+      updateDebug();
+      checkWarnings();
+      checkGameOver();
+      if (state.timeLeft <= 0) endGame("time");
     }
-    updateHud();
-    updateHand();
-    updateDebug();
-    checkWarnings();
-    checkGameOver();
-    if (state.timeLeft <= 0) endGame("time");
   }
   requestAnimationFrame(loop);
 }
@@ -1240,9 +1505,10 @@ function startLevel(levelNumber = 1) {
   updateHand();
   updateDebug();
   renderTasks();
+  renderSupportActions();
   tutorialBox.classList.remove("is-muted");
   setTimeout(() => tutorialBox.classList.add("is-muted"), 2500);
-  toast(level().networkPressureActive ? "第二關開始：網絡壓力加入，紫色任務送會議室" : level().name);
+  toast(level().networkPressureActive ? `${level().name}：紫色任務送往會議室` : level().name);
 }
 
 function startGame() {
@@ -1256,12 +1522,21 @@ startButton.addEventListener("click", () => {
 rulesFromHomeButton.addEventListener("click", showRulesScreen);
 beginLevelButton.addEventListener("click", () => {
   startBgm();
+  journey = createJourney();
   startLevel(1);
 });
 backHomeButton.addEventListener("click", showHomeScreen);
 debugToggle.addEventListener("click", () => { debugPanel.hidden = !debugPanel.hidden; });
 helpButton.addEventListener("click", () => {
-  toast(isTouchLayout() ? "拖拉地圖移動，看發光目標" : "WASD / 方向鍵移動，Q / Tab 換目標");
+  toast(isTouchLayout() ? "拖拉移動；右側可啟動有限支援" : "WASD / 方向鍵移動；右側可啟動有限支援");
+});
+supportActions?.addEventListener("click", event => {
+  const button = event.target instanceof Element ? event.target.closest("button[data-support]") : null;
+  if (button) useSupport(button.dataset.support);
+});
+decisionChoices?.addEventListener("click", event => {
+  const button = event.target instanceof Element ? event.target.closest("button[data-choice]") : null;
+  if (button) chooseDecision(button.dataset.choice);
 });
 
 mobileControls?.querySelectorAll("button").forEach(button => {
@@ -1336,6 +1611,7 @@ resetState();
 updateHud();
 updateHand();
 updateDebug();
+renderSupportActions();
 setScreen("home");
 updateStageScale();
 requestAnimationFrame(time => {

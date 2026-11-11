@@ -64,6 +64,7 @@ button {
 }
 
 .hero-image-frame {
+  position: relative;
   width: min(92vw, 1320px);
   min-height: 280px;
   display: grid;
@@ -76,6 +77,26 @@ button {
     linear-gradient(135deg, rgba(255, 253, 248, 0.94), rgba(241, 247, 247, 0.94)),
     repeating-linear-gradient(90deg, rgba(36, 49, 63, 0.07) 0 1px, transparent 1px 54px);
   box-shadow: var(--shadow);
+}
+
+.hero-image-frame::before {
+  content: "2026 競賽版\A 專業判斷 × 團隊支援";
+  position: absolute;
+  z-index: 1;
+  top: 8%;
+  left: 3%;
+  width: min(43%, 540px);
+  padding: clamp(14px, 2.2vw, 30px);
+  border: 2px solid rgba(36, 49, 63, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 253, 248, 0.96);
+  color: var(--ink);
+  font-size: clamp(1.15rem, 2.2vw, 2.05rem);
+  font-weight: 950;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-line;
+  box-shadow: 0 14px 36px rgba(36, 49, 63, 0.16);
 }
 
 .hero-image-frame img {
@@ -106,7 +127,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .guide-panel {
@@ -120,7 +141,7 @@ button {
 
 .guide-image-wrap {
   width: min(92vw, 1280px);
-  max-height: 78vh;
+  max-height: 44vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,7 +152,7 @@ button {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 78vh;
+  max-height: 44vh;
   object-fit: contain;
   border: 3px solid rgba(36, 49, 63, 0.12);
   border-radius: 24px;
@@ -159,6 +180,56 @@ button {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.home-version-note {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-weight: 800;
+}
+
+.competition-guide {
+  width: min(1120px, 100%);
+  padding: 16px 18px;
+  border: 2px solid rgba(36, 49, 63, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 12px 28px rgba(20, 40, 60, 0.1);
+}
+
+.competition-guide h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.competition-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.competition-guide-grid p {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: left;
+  background: #f3f8f7;
+  line-height: 1.45;
+}
+
+.competition-guide-grid span,
+.guide-ethics {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.guide-ethics {
+  margin: 12px 0 0;
+  line-height: 1.5;
 }
 
 .guide-start-button {
@@ -894,10 +965,12 @@ body.level-network-locked .status-network-pressure {
   border-radius: 18px;
   background: rgba(255, 253, 248, 0.95);
   box-shadow: var(--shadow);
+  overflow-y: auto;
 }
 
 .goal-panel,
-.hand-panel {
+.hand-panel,
+.support-panel {
   padding: 14px;
   border: 2px solid rgba(36, 49, 63, 0.11);
   border-radius: 14px;
@@ -905,9 +978,169 @@ body.level-network-locked .status-network-pressure {
 }
 
 .goal-panel h2,
-.hand-panel h2 {
+.hand-panel h2,
+.support-panel h2 {
   margin: 0 0 10px;
   font-size: 1.14rem;
+}
+
+.support-panel {
+  padding: 12px;
+  border: 2px solid rgba(79, 157, 105, 0.2);
+  border-radius: 14px;
+  background: #f7fcf8;
+}
+
+.support-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.support-heading h2 {
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.support-capacity {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #225c39;
+  background: #dff2e5;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.support-status {
+  min-height: 30px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.support-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.support-button {
+  display: grid;
+  gap: 2px;
+  min-height: 72px;
+  padding: 7px;
+  border: 2px solid rgba(79, 157, 105, 0.22);
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.support-button strong {
+  font-size: 0.78rem;
+}
+
+.support-button span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.support-button small {
+  color: #2e6d48;
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+
+.support-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.decision-dialog {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(20, 30, 39, 0.72);
+  z-index: 60;
+}
+
+.decision-dialog[hidden] {
+  display: none;
+}
+
+.decision-card {
+  width: min(860px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: clamp(20px, 4vw, 34px);
+  border: 3px solid rgba(255, 255, 255, 0.75);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.35);
+}
+
+.decision-kicker {
+  margin: 0 0 8px;
+  color: var(--green);
+  font-weight: 900;
+}
+
+.decision-card h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.45rem, 3vw, 2.15rem);
+}
+
+.decision-context,
+.decision-note {
+  line-height: 1.65;
+}
+
+.decision-context {
+  margin: 0 0 8px;
+}
+
+.decision-note {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-left: 5px solid var(--purple);
+  color: var(--muted);
+  background: #f5f0fb;
+}
+
+.decision-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.decision-choice {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid rgba(63, 130, 212, 0.22);
+  border-radius: 13px;
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.decision-choice:hover,
+.decision-choice:focus-visible {
+  border-color: var(--blue);
+  outline: 3px solid rgba(63, 130, 212, 0.2);
+}
+
+.decision-choice span {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .goal-panel p {
@@ -1048,6 +1281,10 @@ body.level-network-locked .status-network-pressure {
   width: min(980px, 100%);
 }
 
+.result-card.is-final-clear .result-hero {
+  display: none;
+}
+
 .result-hero[hidden] {
   display: none;
 }
@@ -1117,6 +1354,52 @@ body.level-network-locked .status-network-pressure {
   border-radius: 999px;
   background: #f2f6f6;
   font-weight: 900;
+}
+
+.result-learning {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+  text-align: left;
+}
+
+.result-learning > section,
+.education-feedback {
+  padding: 14px;
+  border: 2px solid rgba(36, 49, 63, 0.09);
+  border-radius: 14px;
+  background: #f8fbfb;
+}
+
+.result-learning h3,
+.result-learning p {
+  margin: 0 0 7px;
+}
+
+.result-learning ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.result-learning li span,
+.result-learning li small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.education-feedback {
+  grid-column: 1 / -1;
+  border-color: rgba(79, 157, 105, 0.24);
+  background: #eff8f2;
+}
+
+.education-feedback small {
+  color: var(--muted);
 }
 
 .result-actions {
@@ -1388,6 +1671,15 @@ body.level-network-locked .status-network-pressure {
     grid-template-columns: 1fr;
   }
 
+  .competition-guide-grid,
+  .result-learning {
+    grid-template-columns: 1fr;
+  }
+
+  .education-feedback {
+    grid-column: auto;
+  }
+
   .rule-card {
     min-height: auto;
   }
@@ -1511,9 +1803,19 @@ body.level-network-locked .status-network-pressure {
   }
 
   .goal-panel,
-  .hand-panel {
+  .hand-panel,
+  .support-panel {
     padding: 10px;
     border-radius: 12px;
+  }
+
+  .support-button {
+    min-height: 60px;
+    padding: 6px;
+  }
+
+  .support-button span {
+    display: none;
   }
 
   .goal-panel p {
