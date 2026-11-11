@@ -85,15 +85,15 @@ button {
   z-index: 1;
   top: 8%;
   left: 3%;
-  width: min(43%, 540px);
-  min-height: clamp(110px, 13vw, 180px);
+  width: min(48%, 620px);
+  min-height: clamp(115px, 15vw, 210px);
   box-sizing: border-box;
   display: flex;
   align-items: center;
   padding: clamp(14px, 2.2vw, 30px);
   border: 2px solid rgba(36, 49, 63, 0.12);
   border-radius: 20px;
-  background: rgba(255, 253, 248, 0.96);
+  background: rgb(255, 253, 248);
   color: var(--ink);
   font-size: clamp(1.15rem, 2.2vw, 2.05rem);
   font-weight: 950;
